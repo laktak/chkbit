@@ -1,0 +1,8 @@
+README.rst
+dist/
+.cache/
+.chkbit
+.pytest_cache/
+*.egg-info/
+*.pyc
+_*
