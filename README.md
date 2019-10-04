@@ -5,9 +5,11 @@ chkbit is a lightweight **bitrot detection tool**.
 bitrot (a bit flipping in your data) can occur
 
 - at a low level on the storage media through decay (hdd/sdd)
-- at a high level in the os or firmware through bugs
+- at a high level in the OS or firmware through bugs
 
 chkbit is independent of the file system and can help you detect bitrot on you primary system, on backups and in the cloud.
+
+This is the successor to [chkbit/node](https://github.com/laktak/chkbit-py). It will use and upgrade the index files created by the node version.
 
 ## Installation
 
@@ -30,6 +32,8 @@ chkbit will
 - create a `.chkbit` index in every subdirectory of the path it was given.
 - update the index with md5 hashes for every file.
 - report bitrot for files that rotted since the last run (check the exit status).
+
+Run `chkbit PATH` to verify only.
 
 ```
 usage: chkbit.py [-h] [-u] [-f] [-q] [-v] PATH [PATH ...]
@@ -88,7 +92,7 @@ The advantage of the .chkbit files is that
 - when you move a directory the index moves with it
 - when you make a backup the index is also backed up
 
-The disadvantage is that you get hidden `.chkbit` files in your content folders.
+The disadvantage is obviously that you get hidden `.chkbit` files in your content folders.
 
 ### How does chkbit work?
 
@@ -109,31 +113,33 @@ Create test and set the modified time:
 ```
 $ echo foo1 > test; touch -t 201501010000 test
 $ chkbit -u .
-a ./test
-$
+add ./test
+Processed 1 file(s).
+Indices were updated.
 ```
-`a` indicates the file was added.
+`add` indicates the file was added.
 
 Now update test with a new modified:
 ```
 $ echo foo2 > test; touch -t 201501010001 test # update test & modified
 $ chkbit -u .
-u ./test
-$
+upd ./test
+Processed 1 file(s).
+Indices were updated.
 ```
 
-`u` indicates the file was updated.
+`upd` indicates the file was updated.
 
 Now update test with the same modified to simulate bitrot:
 ```
 $ echo foo3 > test; touch -t 201501010001 test
 $ chkbit -u .
-E ./test
+ROT ./test
+Processed 0 file(s).
 chkbit detected bitrot in these files:
 ./test
 error: detected 1 file(s) with bitrot!
-$
 ```
 
-`E` indicates an error.
+`ROT` indicates bitrot.
 
