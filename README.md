@@ -2,12 +2,17 @@
 
 chkbit is a lightweight **bitrot detection tool**.
 
-bitrot (a bit flipping in your data) can occur
-
-- at a low level on the storage media through decay (hdd/sdd)
-- at a high level in the OS or firmware through bugs
-
 chkbit is independent of the file system and can help you detect bitrot on you primary system, on backups and in the cloud.
+
+## What is bitrot?
+
+0 bits flipped | 1 bit flipped  | 2 bits flipped | 3 bits flipped
+-------------- | -------------- | -------------- | --------------
+![](https://upload.wikimedia.org/wikipedia/commons/thumb/2/2f/Bitrot_in_JPEG_files%2C_0_bits_flipped.jpg/180px-Bitrot_in_JPEG_files%2C_0_bits_flipped.jpg) | ![](https://upload.wikimedia.org/wikipedia/commons/thumb/1/1a/Bitrot_in_JPEG_files%2C_1_bit_flipped.jpg/180px-Bitrot_in_JPEG_files%2C_1_bit_flipped.jpg) | ![](https://upload.wikimedia.org/wikipedia/commons/thumb/3/37/Bitrot_in_JPEG_files%2C_2_bits_flipped.jpg/180px-Bitrot_in_JPEG_files%2C_2_bits_flipped.jpg) | ![](https://upload.wikimedia.org/wikipedia/commons/thumb/d/dd/Bitrot_in_JPEG_files%2C_3_bits_flipped.jpg/180px-Bitrot_in_JPEG_files%2C_3_bits_flipped.jpg) | 
+
+Data degradation (aka bitrot) is the gradual corruption of computer data due to an accumulation of non-critical failures in a data storage device. It results from the gradual decay of storage media over the course of years or longer. Causes vary by medium.
+
+**For more information** see [Wikipedia - Data_degradation](https://en.wikipedia.org/wiki/Data_degradation).
 
 This is the successor to [chkbit/node](https://github.com/laktak/chkbit-py). It will use and upgrade the index files created by the node version.
 
