@@ -14,7 +14,7 @@ Data degradation (aka bitrot) is the gradual corruption of computer data due to 
 
 **For more information** see [Wikipedia - Data_degradation](https://en.wikipedia.org/wiki/Data_degradation).
 
-This is the successor to [chkbit/node](https://github.com/laktak/chkbit-py). It will use and upgrade the index files created by the node version.
+This is the successor to [chkbit/node](https://github.com/laktak/chkbit). It will use and upgrade the index files created by the node version.
 
 ## Installation
 
