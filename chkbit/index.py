@@ -1,3 +1,4 @@
+import fnmatch
 import os
 import subprocess
 import sys
@@ -43,7 +44,10 @@ class Index:
         return os.path.join(self.path, INDEX)
 
     def should_ignore(self, name):
-        return name in self.ignore
+        for ignore in self.ignore:
+            if fnmatch.fnmatch(name, ignore):
+                 return True
+        return False
 
     def _setmod(self):
         self.modified = True
