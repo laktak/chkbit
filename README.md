@@ -8,7 +8,7 @@ chkbit is independent of the file system and can help you detect bitrot on you p
 
 0 bits flipped | 1 bit flipped  | 2 bits flipped | 3 bits flipped
 -------------- | -------------- | -------------- | --------------
-![](https://upload.wikimedia.org/wikipedia/commons/thumb/2/2f/Bitrot_in_JPEG_files%2C_0_bits_flipped.jpg/180px-Bitrot_in_JPEG_files%2C_0_bits_flipped.jpg) | ![](https://upload.wikimedia.org/wikipedia/commons/thumb/1/1a/Bitrot_in_JPEG_files%2C_1_bit_flipped.jpg/180px-Bitrot_in_JPEG_files%2C_1_bit_flipped.jpg) | ![](https://upload.wikimedia.org/wikipedia/commons/thumb/3/37/Bitrot_in_JPEG_files%2C_2_bits_flipped.jpg/180px-Bitrot_in_JPEG_files%2C_2_bits_flipped.jpg) | ![](https://upload.wikimedia.org/wikipedia/commons/thumb/d/dd/Bitrot_in_JPEG_files%2C_3_bits_flipped.jpg/180px-Bitrot_in_JPEG_files%2C_3_bits_flipped.jpg) | 
+![](https://upload.wikimedia.org/wikipedia/commons/thumb/2/2f/Bitrot_in_JPEG_files%2C_0_bits_flipped.jpg/180px-Bitrot_in_JPEG_files%2C_0_bits_flipped.jpg) | ![](https://upload.wikimedia.org/wikipedia/commons/thumb/1/1a/Bitrot_in_JPEG_files%2C_1_bit_flipped.jpg/180px-Bitrot_in_JPEG_files%2C_1_bit_flipped.jpg) | ![](https://upload.wikimedia.org/wikipedia/commons/thumb/3/37/Bitrot_in_JPEG_files%2C_2_bits_flipped.jpg/180px-Bitrot_in_JPEG_files%2C_2_bits_flipped.jpg) | ![](https://upload.wikimedia.org/wikipedia/commons/thumb/d/dd/Bitrot_in_JPEG_files%2C_3_bits_flipped.jpg/180px-Bitrot_in_JPEG_files%2C_3_bits_flipped.jpg) |
 
 Data degradation (aka bitrot) is the gradual corruption of computer data due to an accumulation of non-critical failures in a data storage device. It results from the gradual decay of storage media over the course of years or longer. Causes vary by medium.
 
@@ -59,7 +59,7 @@ Status codes:
   ROT: error, bitrot detected
   EIX: error, index damaged
   old: warning, file replaced by an older version
-  add: add to index
+  new: new file
   upd: file updated
   ok : check ok
   skp: skipped (see .chkbitignore)

@@ -6,7 +6,7 @@ import json
 from enum import Enum
 from chkbit import hashfile, hashtext
 
-VERSION = 2 # index version
+VERSION = 2  # index version
 INDEX = ".chkbit"
 IGNORE = ".chkbitignore"
 
@@ -15,7 +15,7 @@ class Stat(Enum):
     ERR_BITROT = "ROT"
     ERR_IDX = "EIX"
     WARN_OLD = "old"
-    ADD = "add"
+    NEW = "new"
     UPDATE = "upd"
     OK = "ok "
     SKIP = "skp"
@@ -46,7 +46,7 @@ class Index:
     def should_ignore(self, name):
         for ignore in self.ignore:
             if fnmatch.fnmatch(name, ignore):
-                 return True
+                return True
         return False
 
     def _setmod(self):
@@ -66,7 +66,7 @@ class Index:
     def check_fix(self, force):
         for name in self.new.keys():
             if not name in self.old:
-                self._log(Stat.ADD, name)
+                self._log(Stat.NEW, name)
                 self._setmod()
                 continue
 

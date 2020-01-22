@@ -11,7 +11,7 @@ Status codes:
   ROT: error, bitrot detected
   EIX: error, index damaged
   old: warning, file replaced by an older version
-  add: add to index
+  new: new file
   upd: file updated
   ok : check ok
   skp: skipped (see .chkbitignore)
@@ -35,7 +35,7 @@ class Main:
         else:
             if stat in [Stat.ERR_BITROT, Stat.INTERNALEXCEPTION]:
                 self.err_list.append(path)
-            if stat in [Stat.OK, Stat.UPDATE, Stat.ADD]:
+            if stat in [Stat.OK, Stat.UPDATE, Stat.NEW]:
                 self.total += 1
             if self.verbose or not stat in [Stat.OK, Stat.SKIP]:
                 print(stat.value, path)
@@ -101,7 +101,9 @@ class Main:
 
     def print_result(self):
         if not self.quiet:
-            print(f"Processed {self.total} file(s).")
+            print(
+                f"Processed {self.total} file(s){' in readonly mode' if not self.args.update else ''}."
+            )
             if self.modified:
                 print("Indices were updated.")
 
