@@ -39,7 +39,7 @@ class Main:
                 self.total += 1
             if self.verbose or not stat in [Stat.OK, Stat.SKIP]:
                 print(stat.value, path)
-            if not self.quiet:
+            if not self.quiet and sys.stdout.isatty():
                 print(self.total, end="\r")
 
     def _parse_args(self):
