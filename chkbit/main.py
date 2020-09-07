@@ -22,6 +22,7 @@ Status codes:
 class Main:
     def __init__(self):
         self.stdscr = None
+        self.bitrot_list = []
         self.err_list = []
         self.modified = False
         self.verbose = False
@@ -33,9 +34,11 @@ class Main:
         if stat == Stat.FLAG_MOD:
             self.modified = True
         else:
-            if stat in [Stat.ERR_BITROT, Stat.INTERNALEXCEPTION]:
+            if stat == Stat.ERR_BITROT:
+                self.bitrot_list.append(path)
+            elif stat == Stat.INTERNALEXCEPTION:
                 self.err_list.append(path)
-            if stat in [Stat.OK, Stat.UPDATE, Stat.NEW]:
+            elif stat in [Stat.OK, Stat.UPDATE, Stat.NEW]:
                 self.total += 1
             if self.verbose or not stat in [Stat.OK, Stat.SKIP]:
                 print(stat.value, path)
@@ -107,11 +110,17 @@ class Main:
             if self.modified:
                 print("Indices were updated.")
 
-        if self.err_list:
+        if self.bitrot_list:
             print("chkbit detected bitrot in these files:", file=sys.stderr)
+            for err in self.bitrot_list:
+                print(err, file=sys.stderr)
+            print(f"error: detected {len(self.bitrot_list)} file(s) with bitrot!", file=sys.stderr)
+        if self.err_list:
+            print("chkbit ran into errors:", file=sys.stderr)
             for err in self.err_list:
                 print(err, file=sys.stderr)
-            print(f"error: detected {len(self.err_list)} file(s) with bitrot!", file=sys.stderr)
+
+        if self.bitrot_list or self.err_list:
             sys.exit(1)
 
 
