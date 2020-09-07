@@ -141,5 +141,7 @@ class Index:
             text = f.read()
 
         self.ignore = list(
-            filter(lambda x: x and x[0] != "#" and len(x.strip()) > 0, text.splitlines())
+            filter(
+                lambda x: x and x[0] != "#" and len(x.strip()) > 0, text.splitlines()
+            )
         )

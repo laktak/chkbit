@@ -69,9 +69,14 @@ class Main:
         # )
 
         parser.add_argument(
-            "-q", "--quiet", action="store_true", help="quiet, don't show progress/information"
+            "-q",
+            "--quiet",
+            action="store_true",
+            help="quiet, don't show progress/information",
         )
-        parser.add_argument("-v", "--verbose", action="store_true", help="verbose output")
+        parser.add_argument(
+            "-v", "--verbose", action="store_true", help="verbose output"
+        )
 
         self.args = parser.parse_args()
         self.verbose = self.args.verbose
@@ -93,7 +98,9 @@ class Main:
         for path in self.args.PATH:
             todo_queue.put(path)
 
-        workers = [IndexThread(idx, self.args, self.res_queue, todo_queue) for idx in range(5)]
+        workers = [
+            IndexThread(idx, self.args, self.res_queue, todo_queue) for idx in range(5)
+        ]
 
         res_worker = threading.Thread(target=self._res_worker)
         res_worker.daemon = True
@@ -114,7 +121,10 @@ class Main:
             print("chkbit detected bitrot in these files:", file=sys.stderr)
             for err in self.bitrot_list:
                 print(err, file=sys.stderr)
-            print(f"error: detected {len(self.bitrot_list)} file(s) with bitrot!", file=sys.stderr)
+            print(
+                f"error: detected {len(self.bitrot_list)} file(s) with bitrot!",
+                file=sys.stderr,
+            )
         if self.err_list:
             print("chkbit ran into errors:", file=sys.stderr)
             for err in self.err_list:
