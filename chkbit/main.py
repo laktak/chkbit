@@ -64,6 +64,13 @@ class Main:
             "-f", "--force", action="store_true", help="force update of damaged items"
         )
 
+        parser.add_argument(
+            "-i",
+            "--verify-index",
+            action="store_true",
+            help="verify files in the index only (will not report new files)",
+        )
+
         # parser.add_argument(
         #     "-d", "--delete", action="store_true", help="remove all .chkbit files from target"
         # )

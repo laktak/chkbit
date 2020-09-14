@@ -56,6 +56,7 @@ class Index:
         if self.log:
             self.log(stat, os.path.join(self.path, name))
 
+    # calc new hashes for this index
     def update(self):
         for name in self.files:
             if self.should_ignore(name):
@@ -63,6 +64,7 @@ class Index:
                 continue
             self.new[name] = self._calc_file(name)
 
+    # check/update the index (old vs new)
     def check_fix(self, force):
         for name in self.new.keys():
             if not name in self.old:
@@ -119,7 +121,7 @@ class Index:
 
     def load(self):
         if not os.path.exists(self.idx_file):
-            return
+            return False
         self.modified = False
         with open(self.idx_file, "r", encoding="utf-8") as f:
             data = json.load(f)
@@ -133,6 +135,7 @@ class Index:
                 if data.get("idx_hash") != hashtext(text):
                     self.modified = True
                     self._log(Stat.ERR_IDX, self.idx_file)
+        return True
 
     def load_ignore(self):
         if not os.path.exists(self.ignore_file):

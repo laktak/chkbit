@@ -8,7 +8,8 @@ from chkbit import Index, Stat
 class IndexThread:
     def __init__(self, idx, args, res_queue, todo_queue):
         self.idx = idx
-        self.update = args.update
+        self.verify_index_only = args.verify_index
+        self.update = args.update and not self.verify_index_only
         self.force = args.force
         self.todo_queue = todo_queue
         self.res_queue = res_queue
@@ -17,7 +18,8 @@ class IndexThread:
         self.t.start()
 
     def _log(self, stat, path):
-        self.res_queue.put((self.idx, stat, path))
+        if not self.verify_index_only or stat != Stat.NEW:
+            self.res_queue.put((self.idx, stat, path))
 
     def _process_root(self, parent):
         files = []
@@ -35,18 +37,18 @@ class IndexThread:
 
         # load index
         e = Index(parent, files, log=self._log)
-        e.load()
+        if e.load() or not self.verify_index_only:
 
-        # update the index from current state
-        e.update()
+            # calc the new hashes
+            e.update()
 
-        # compare
-        e.check_fix(self.force)
+            # compare
+            e.check_fix(self.force)
 
-        # save if update is set
-        if self.update:
-            if e.save():
-                self._log(Stat.FLAG_MOD, "")
+            # save if update is set
+            if self.update:
+                if e.save():
+                    self._log(Stat.FLAG_MOD, "")
 
         # process subdirs
         for name in dirs:
