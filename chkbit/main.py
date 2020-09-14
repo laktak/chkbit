@@ -51,7 +51,7 @@ class Main:
             epilog=STATUS_CODES,
             formatter_class=argparse.RawDescriptionHelpFormatter,
         )
-        parser.add_argument("PATH", nargs="+")
+        parser.add_argument("PATH", nargs="*")
 
         parser.add_argument(
             "-u",
@@ -88,6 +88,8 @@ class Main:
         self.args = parser.parse_args()
         self.verbose = self.args.verbose
         self.quiet = self.args.quiet
+        if not self.args.PATH:
+            parser.print_help()
 
     def _res_worker(self):
         while True:
@@ -144,8 +146,9 @@ class Main:
 def main():
     try:
         m = Main()
-        m.process()
-        m.print_result()
+        if m.args.PATH:
+            m.process()
+            m.print_result()
     except KeyboardInterrupt:
         print("abort")
         sys.exit(1)

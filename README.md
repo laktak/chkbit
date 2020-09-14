@@ -41,7 +41,7 @@ chkbit will
 Run `chkbit PATH` to verify only.
 
 ```
-usage: chkbit.py [-h] [-u] [-f] [-q] [-v] PATH [PATH ...]
+usage: chkbit.py [-h] [-u] [-f] [-i] [-q] [-v] [PATH [PATH ...]]
 
 Checks files for bitrot. See https://github.com/laktak/chkbit-py
 
@@ -49,11 +49,12 @@ positional arguments:
   PATH
 
 optional arguments:
-  -h, --help     show this help message and exit
-  -u, --update   update indices (without this chkbit will only verify files)
-  -f, --force    force update of damaged items
-  -q, --quiet    quiet, don't show progress/information
-  -v, --verbose  verbose output
+  -h, --help          show this help message and exit
+  -u, --update        update indices (without this chkbit will only verify files)
+  -f, --force         force update of damaged items
+  -i, --verify-index  verify files in the index only (will not report new files)
+  -q, --quiet         quiet, don't show progress/information
+  -v, --verbose       verbose output
 
 Status codes:
   ROT: error, bitrot detected
