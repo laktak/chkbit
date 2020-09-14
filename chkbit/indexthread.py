@@ -52,6 +52,8 @@ class IndexThread:
         for name in dirs:
             if not e.should_ignore(name):
                 self.todo_queue.put(os.path.join(parent, name))
+            else:
+                self._log(Stat.SKIP, name + "/")
 
     def run(self):
         while True:
