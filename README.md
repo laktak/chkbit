@@ -1,8 +1,18 @@
 # chkbit
 
-chkbit is a lightweight **bitrot detection tool**.
+chkbit is a lightweight tool to check data integrity and to detect bitrot.
 
 chkbit is independent of the file system and can help you detect bitrot on you primary system, on backups and in the cloud.
+
+## TL;DR
+
+Any cloud or local storage media can be affected by data corruption and/or bitrot. While some filesystems have built in protection, this protection is limited to the storage media.
+
+chkbit will create an hash that follows your data from local media to cloud or backup. This enables you to verify the integrity of your data wherever it is moved.
+
+- run chkbit on your system
+- move the data to a new system (backup/restore)
+- verify that everything is OK with chkbit
 
 ## What is bitrot?
 
