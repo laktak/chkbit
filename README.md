@@ -1,30 +1,24 @@
 # chkbit
 
-chkbit is a lightweight tool to check data integrity and to detect bitrot.
+chkbit is a lightweight tool to check the data integrity of your files. It allows you to verify *that the data has not changed* since you put it there and that it is still the same when you move it somewhere else.
 
-chkbit is independent of the file system and can help you detect bitrot on you primary system, on backups and in the cloud.
+### On your Disk
 
-## TL;DR
+chkbit starts with your primary disk. It creates checksums for each folder that will follow your data onto your backups.
 
-Any cloud or local storage media can be affected by data corruption and/or bitrot. While some filesystems have built in protection, this protection is limited to the storage media.
+Even though your filesystems should have built in checksums, it is usually not trivial to take them onto another media.
 
-chkbit will create an hash that follows your data from local media to cloud or backup. This enables you to verify the integrity of your data wherever it is moved.
+### On your backup
 
-- run chkbit on your system
-- move the data to a new system (backup/restore)
-- verify that everything is OK with chkbit
+No matter what storage media or filesystem you use, chkbit stores its indexes in hidden files that are backed up together with your data.
 
-## What is bitrot?
+When you run chkbit-verify on your backup media you can make sure that every byte was correctly transferred.
 
-0 bits flipped | 1 bit flipped  | 2 bits flipped | 3 bits flipped
--------------- | -------------- | -------------- | --------------
-![](https://upload.wikimedia.org/wikipedia/commons/thumb/2/2f/Bitrot_in_JPEG_files%2C_0_bits_flipped.jpg/180px-Bitrot_in_JPEG_files%2C_0_bits_flipped.jpg) | ![](https://upload.wikimedia.org/wikipedia/commons/thumb/1/1a/Bitrot_in_JPEG_files%2C_1_bit_flipped.jpg/180px-Bitrot_in_JPEG_files%2C_1_bit_flipped.jpg) | ![](https://upload.wikimedia.org/wikipedia/commons/thumb/3/37/Bitrot_in_JPEG_files%2C_2_bits_flipped.jpg/180px-Bitrot_in_JPEG_files%2C_2_bits_flipped.jpg) | ![](https://upload.wikimedia.org/wikipedia/commons/thumb/d/dd/Bitrot_in_JPEG_files%2C_3_bits_flipped.jpg/180px-Bitrot_in_JPEG_files%2C_3_bits_flipped.jpg) |
+If your backup media fails or experiences [bitrot/data degradation](https://en.wikipedia.org/wiki/Data_degradation), chkbit allows you to discover what files were damaged and need to be replaced by other backups.
 
-Data degradation (aka bitrot) is the gradual corruption of computer data due to an accumulation of non-critical failures in a data storage device. It results from the gradual decay of storage media over the course of years or longer. Causes vary by medium.
+### Data in the Cloud
 
-**For more information** see [Wikipedia - Data_degradation](https://en.wikipedia.org/wiki/Data_degradation).
-
-This is the successor to [chkbit/node](https://github.com/laktak/chkbit). It will use and upgrade the index files created by the node version.
+Some cloud providers re-encode your videos or compress your images to save space. chkbit will alert you of any changes.
 
 ## Installation
 
@@ -46,14 +40,14 @@ chkbit will
 
 - create a `.chkbit` index in every subdirectory of the path it was given.
 - update the index with md5 hashes for every file.
-- report bitrot for files that rotted since the last run (check the exit status).
+- report damage for files that failed the integrity check since the last run (check the exit status).
 
 Run `chkbit PATH` to verify only.
 
 ```
 usage: chkbit.py [-h] [-u] [-f] [-i] [-q] [-v] [PATH [PATH ...]]
 
-Checks files for bitrot. See https://github.com/laktak/chkbit-py
+Checks the data integrity of your files. See https://github.com/laktak/chkbit-py
 
 positional arguments:
   PATH
@@ -67,7 +61,7 @@ optional arguments:
   -v, --verbose       verbose output
 
 Status codes:
-  ROT: error, bitrot detected
+  DMG: error, data damage detected
   EIX: error, index damaged
   old: warning, file replaced by an older version
   new: new file
@@ -79,14 +73,14 @@ Status codes:
 
 ## Repair
 
-chkbit cannot repair bitrot, its job is simply to detect it.
+chkbit cannot repair damage, its job is simply to detect it.
 
 You should
 
 - backup regularly.
 - run chkbit *before* each backup.
-- check for bitrot on the backup media.
-- in case of bitrot *restore* from a checked backup.
+- check for damage on the backup media.
+- in case of damage *restore* from a checked backup.
 
 ## Ignore files
 
@@ -147,16 +141,16 @@ Indices were updated.
 
 `upd` indicates the file was updated.
 
-Now update test with the same modified to simulate bitrot:
+Now update test with the same modified to simulate damage:
 ```
 $ echo foo3 > test; touch -t 201501010001 test
 $ chkbit -u .
-ROT ./test
+DMG ./test
 Processed 0 file(s).
-chkbit detected bitrot in these files:
+chkbit detected damage in these files:
 ./test
-error: detected 1 file(s) with bitrot!
+error: detected 1 file(s) with damage!
 ```
 
-`ROT` indicates bitrot.
+`DMG` indicates damage.
 

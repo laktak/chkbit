@@ -11,11 +11,11 @@ with open(os.path.join(os.path.dirname(__file__), "README.md"), encoding="utf-8"
 
 setup(
     name="chkbit",
-    version="2.0.3",
+    version="2.1.0",
     url="https://github.com/laktak/chkbit-py",
     author="Christian Zangl",
     author_email="laktak@cdak.net",
-    description="chkbit is a lightweight bitrot detection tool.",
+    description="chkbit checks the data integrity of your files",
     long_description=readme,
     long_description_content_type="text/markdown",
     entry_points={"console_scripts": ["chkbit = chkbit.main:main"]},

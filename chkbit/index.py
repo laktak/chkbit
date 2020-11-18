@@ -12,7 +12,8 @@ IGNORE = ".chkbitignore"
 
 
 class Stat(Enum):
-    ERR_BITROT = "ROT"
+    ERR_DMG = "DMG"
+    ERR_BITROT = "DMG"  # legacy
     ERR_IDX = "EIX"
     WARN_OLD = "old"
     NEW = "new"
@@ -84,8 +85,8 @@ class Index:
                 continue
 
             if amod == bmod:
-                # rot detected
-                self._log(Stat.ERR_BITROT, name)
+                # damage detected
+                self._log(Stat.ERR_DMG, name)
                 # replace with old so we don't loose the information on the next run
                 # unless force is set
                 if not force:

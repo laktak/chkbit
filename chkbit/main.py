@@ -8,7 +8,7 @@ from chkbit import IndexThread, Stat
 
 STATUS_CODES = """
 Status codes:
-  ROT: error, bitrot detected
+  DMG: error, data damage detected
   EIX: error, index damaged
   old: warning, file replaced by an older version
   new: new file
@@ -22,7 +22,7 @@ Status codes:
 class Main:
     def __init__(self):
         self.stdscr = None
-        self.bitrot_list = []
+        self.dmg_list = []
         self.err_list = []
         self.modified = False
         self.verbose = False
@@ -34,8 +34,8 @@ class Main:
         if stat == Stat.FLAG_MOD:
             self.modified = True
         else:
-            if stat == Stat.ERR_BITROT:
-                self.bitrot_list.append(path)
+            if stat == Stat.ERR_DMG:
+                self.dmg_list.append(path)
             elif stat == Stat.INTERNALEXCEPTION:
                 self.err_list.append(path)
             elif stat in [Stat.OK, Stat.UPDATE, Stat.NEW]:
@@ -47,7 +47,7 @@ class Main:
 
     def _parse_args(self):
         parser = argparse.ArgumentParser(
-            description="Checks files for bitrot. See https://github.com/laktak/chkbit-py",
+            description="Checks the data integrity of your files. See https://github.com/laktak/chkbit-py",
             epilog=STATUS_CODES,
             formatter_class=argparse.RawDescriptionHelpFormatter,
         )
@@ -70,10 +70,6 @@ class Main:
             action="store_true",
             help="verify files in the index only (will not report new files)",
         )
-
-        # parser.add_argument(
-        #     "-d", "--delete", action="store_true", help="remove all .chkbit files from target"
-        # )
 
         parser.add_argument(
             "-q",
@@ -126,12 +122,12 @@ class Main:
             if self.modified:
                 print("Indices were updated.")
 
-        if self.bitrot_list:
-            print("chkbit detected bitrot in these files:", file=sys.stderr)
-            for err in self.bitrot_list:
+        if self.dmg_list:
+            print("chkbit detected damage in these files:", file=sys.stderr)
+            for err in self.dmg_list:
                 print(err, file=sys.stderr)
             print(
-                f"error: detected {len(self.bitrot_list)} file(s) with bitrot!",
+                f"error: detected {len(self.dmg_list)} file(s) with damage!",
                 file=sys.stderr,
             )
         if self.err_list:
@@ -139,7 +135,7 @@ class Main:
             for err in self.err_list:
                 print(err, file=sys.stderr)
 
-        if self.bitrot_list or self.err_list:
+        if self.dmg_list or self.err_list:
             sys.exit(1)
 
 
