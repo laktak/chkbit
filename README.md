@@ -45,18 +45,19 @@ chkbit will
 Run `chkbit PATH` to verify only.
 
 ```
-usage: chkbit.py [-h] [-u] [-f] [-i] [-q] [-v] [PATH [PATH ...]]
+usage: chkbit.py [-h] [-u] [-f] [-i] [-w N] [-q] [-v] [PATH [PATH ...]]
 
 Checks the data integrity of your files. See https://github.com/laktak/chkbit-py
 
 positional arguments:
-  PATH
+  PATH                directories to check
 
 optional arguments:
   -h, --help          show this help message and exit
   -u, --update        update indices (without this chkbit will only verify files)
   -f, --force         force update of damaged items
   -i, --verify-index  verify files in the index only (will not report new files)
+  -w N, --workers N   number of workers to use, default=5
   -q, --quiet         quiet, don't show progress/information
   -v, --verbose       verbose output
 
@@ -70,6 +71,8 @@ Status codes:
   skp: skipped (see .chkbitignore)
   EXC: internal exception
 ```
+
+chkbit is set to use only 5 workers by default so it will not slow your system to a crawl. You can specify a higher number to make it a lot faster (requires about 128kB of memory per worker).
 
 ## Repair
 

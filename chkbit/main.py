@@ -51,7 +51,10 @@ class Main:
             epilog=STATUS_CODES,
             formatter_class=argparse.RawDescriptionHelpFormatter,
         )
-        parser.add_argument("PATH", nargs="*")
+
+        parser.add_argument(
+            "paths", metavar="PATH", type=str, nargs="*", help="directories to check"
+        )
 
         parser.add_argument(
             "-u",
@@ -72,6 +75,16 @@ class Main:
         )
 
         parser.add_argument(
+            "-w",
+            "--workers",
+            metavar="N",
+            action="store",
+            type=int,
+            default=5,
+            help="number of workers to use, default=5",
+        )
+
+        parser.add_argument(
             "-q",
             "--quiet",
             action="store_true",
@@ -84,7 +97,7 @@ class Main:
         self.args = parser.parse_args()
         self.verbose = self.args.verbose
         self.quiet = self.args.quiet
-        if not self.args.PATH:
+        if not self.args.paths:
             parser.print_help()
 
     def _res_worker(self):
@@ -98,15 +111,22 @@ class Main:
     def process(self):
 
         self.res_queue = queue.Queue()
+
+        # the todo queue is used to distribute the work
+        # to the index threads
         todo_queue = queue.Queue()
 
-        for path in self.args.PATH:
+        # put the initial paths into the queue
+        for path in self.args.paths:
             todo_queue.put(path)
 
+        # start indexing
         workers = [
-            IndexThread(idx, self.args, self.res_queue, todo_queue) for idx in range(5)
+            IndexThread(idx, self.args, self.res_queue, todo_queue)
+            for idx in range(self.args.workers)
         ]
 
+        # log the results from the workers
         res_worker = threading.Thread(target=self._res_worker)
         res_worker.daemon = True
         res_worker.start()
@@ -142,7 +162,7 @@ class Main:
 def main():
     try:
         m = Main()
-        if m.args.PATH:
+        if m.args.paths:
             m.process()
             m.print_result()
     except KeyboardInterrupt:
