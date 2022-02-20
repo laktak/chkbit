@@ -58,12 +58,22 @@ class Index:
             self.log(stat, os.path.join(self.path, name))
 
     # calc new hashes for this index
-    def update(self):
+    def update(self, context):
         for name in self.files:
             if self.should_ignore(name):
                 self._log(Stat.SKIP, name)
                 continue
-            self.new[name] = self._calc_file(name)
+
+            a = context.hash_algo
+            # check previously used hash
+            if name in self.old:
+                old = self.old[name]
+                if "md5" in old:
+                    a = "md5"  # legacy structure
+                    self.old[name] = {"mod": old["mod"], "a": a, "h": old["md5"]}
+                elif "a" in old:
+                    a = old["a"]
+            self.new[name] = self._calc_file(name, a)
 
     # check/update the index (old vs new)
     def check_fix(self, force):
@@ -77,7 +87,7 @@ class Index:
             b = self.new[name]
             amod = a["mod"]
             bmod = b["mod"]
-            if a["md5"] == b["md5"]:
+            if a["h"] == b["h"]:
                 # ok, if the content stays the same the mod time does not matter
                 self._log(Stat.OK, name)
                 if amod != bmod:
@@ -101,11 +111,11 @@ class Index:
                 self._log(Stat.WARN_OLD, name)
                 self._setmod()
 
-    def _calc_file(self, name):
+    def _calc_file(self, name, a):
         path = os.path.join(self.path, name)
         info = os.stat(path)
         mtime = int(info.st_mtime * 1000)
-        return {"mod": mtime, "md5": hashfile(path)}
+        return {"mod": mtime, "a": a, "h": hashfile(path, a)}
 
     def save(self):
         if self.modified:
@@ -114,7 +124,7 @@ class Index:
             data["idx_hash"] = hashtext(text)
 
             with open(self.idx_file, "w", encoding="utf-8") as f:
-                json.dump(data, f)
+                json.dump(data, f, separators=(",", ":"))
             self.modified = False
             return True
         else:
@@ -129,7 +139,11 @@ class Index:
             if "data" in data:
                 # extract old format from js version
                 for item in json.loads(data["data"]):
-                    self.old[item["name"]] = {"mod": item["mod"], "md5": item["md5"]}
+                    self.old[item["name"]] = {
+                        "mod": item["mod"],
+                        "a": "md5",
+                        "h": item["md5"],
+                    }
             elif "idx" in data:
                 self.old = data["idx"]
                 text = json.dumps(self.old, separators=(",", ":"))

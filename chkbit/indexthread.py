@@ -6,11 +6,11 @@ from chkbit import Index, Stat
 
 
 class IndexThread:
-    def __init__(self, idx, args, res_queue, todo_queue):
+    def __init__(self, idx, context, res_queue, todo_queue):
         self.idx = idx
-        self.verify_index_only = args.verify_index
-        self.update = args.update and not self.verify_index_only
-        self.force = args.force
+        self.verify_index_only = context.verify_index
+        self.update = context.update and not self.verify_index_only
+        self.context = context
         self.todo_queue = todo_queue
         self.res_queue = res_queue
         self.t = threading.Thread(target=self.run)
@@ -40,10 +40,10 @@ class IndexThread:
         if e.load() or not self.verify_index_only:
 
             # calc the new hashes
-            e.update()
+            e.update(self.context)
 
             # compare
-            e.check_fix(self.force)
+            e.check_fix(self.context.force)
 
             # save if update is set
             if self.update:

@@ -39,22 +39,23 @@ Run `chkbit -u PATH` to create/update the chkbit index.
 chkbit will
 
 - create a `.chkbit` index in every subdirectory of the path it was given.
-- update the index with md5 hashes for every file.
+- update the index with md5/sha512 hashes for every file.
 - report damage for files that failed the integrity check since the last run (check the exit status).
 
 Run `chkbit PATH` to verify only.
 
 ```
-usage: chkbit.py [-h] [-u] [-f] [-i] [-w N] [-q] [-v] [PATH [PATH ...]]
+usage: chkbit.py [-h] [-u] [--algo ALGO] [-f] [-i] [-w N] [-q] [-v] [PATH ...]
 
 Checks the data integrity of your files. See https://github.com/laktak/chkbit-py
 
 positional arguments:
   PATH                directories to check
 
-optional arguments:
+options:
   -h, --help          show this help message and exit
   -u, --update        update indices (without this chkbit will only verify files)
+  --algo ALGO         hash algorithm: md5, sha512
   -f, --force         force update of damaged items
   -i, --verify-index  verify files in the index only (will not report new files)
   -w N, --workers N   number of workers to use, default=5
@@ -112,12 +113,28 @@ The disadvantage is obviously that you get hidden `.chkbit` files in your conten
 
 chkbit operates on files.
 
-When run for the first time it records a md5 hash of the file contents as well as the file modification time.
+When run for the first time it records a hash of the file contents as well as the file modification time.
 
 When you run it again it first checks the modification time,
 
-- if the time changed (because you made an edit) it records a new md5 hash.
-- otherwise it will compare the current md5 to the recorded value and report an error if they do not match.
+- if the time changed (because you made an edit) it records a new hash.
+- otherwise it will compare the current hash to the recorded value and report an error if they do not match.
+
+### I wish to use a stronger hash algorithm
+
+chkbit now supports sha512. You can specify it with `--algo sha512`.
+
+Note that existing index files will use the hash that they were created with. If you wish to update all hashes you need to delete your existing indexes first.
+
+### How can I delete the index files?
+
+List them with
+
+```
+find . -name .chkbit
+```
+
+and add `-delete` to delete.
 
 ### Can I test if chkbit is working correctly?
 

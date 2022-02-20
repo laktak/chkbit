@@ -4,7 +4,7 @@ import time
 import argparse
 import queue
 import threading
-from chkbit import IndexThread, Stat
+from chkbit import Context, IndexThread, Stat
 
 STATUS_CODES = """
 Status codes:
@@ -64,6 +64,13 @@ class Main:
         )
 
         parser.add_argument(
+            "--algo",
+            type=str,
+            default="md5",
+            help="hash algorithm: md5, sha512",
+        )
+
+        parser.add_argument(
             "-f", "--force", action="store_true", help="force update of damaged items"
         )
 
@@ -90,6 +97,7 @@ class Main:
             action="store_true",
             help="quiet, don't show progress/information",
         )
+
         parser.add_argument(
             "-v", "--verbose", action="store_true", help="verbose output"
         )
@@ -120,9 +128,16 @@ class Main:
         for path in self.args.paths:
             todo_queue.put(path)
 
+        context = Context(
+            self.args.verify_index,
+            self.args.update,
+            self.args.force,
+            self.args.algo,
+        )
+
         # start indexing
         workers = [
-            IndexThread(idx, self.args, self.res_queue, todo_queue)
+            IndexThread(idx, context, self.res_queue, todo_queue)
             for idx in range(self.args.workers)
         ]
 
