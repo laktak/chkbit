@@ -1,7 +1,7 @@
 import hashlib
 
 
-BLOCKSIZE = 2**10 * 128  # kb
+BLOCKSIZE = 2 ** 10 * 128  # kb
 
 
 def hashfile(path, hash_algo=None):

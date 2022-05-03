@@ -65,5 +65,5 @@ class IndexThread:
             try:
                 self._process_root(parent)
             except Exception as e:
-                self._log(Stat.INTERNALEXCEPTION, e)
+                self._log(Stat.INTERNALEXCEPTION, f"{parent}: {e}")
             self.todo_queue.task_done()
