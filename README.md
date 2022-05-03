@@ -45,14 +45,14 @@ chkbit will
 Run `chkbit PATH` to verify only.
 
 ```
-usage: chkbit.py [-h] [-u] [--algo ALGO] [-f] [-i] [-w N] [-q] [-v] [PATH ...]
+usage: chkbit [-h] [-u] [--algo ALGO] [-f] [-i] [-w N] [-q] [-v] [PATH ...]
 
 Checks the data integrity of your files. See https://github.com/laktak/chkbit-py
 
 positional arguments:
   PATH                directories to check
 
-options:
+optional arguments:
   -h, --help          show this help message and exit
   -u, --update        update indices (without this chkbit will only verify files)
   --algo ALGO         hash algorithm: md5, sha512
