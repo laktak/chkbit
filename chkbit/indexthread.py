@@ -31,7 +31,10 @@ class IndexThread:
             if name[0] == ".":
                 continue
             if os.path.isdir(path):
-                dirs.append(name)
+                if self.context.skip_symlinks and os.path.islink(path):
+                    pass
+                else:
+                    dirs.append(name)
             elif os.path.isfile(path):
                 files.append(name)
 
