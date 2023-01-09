@@ -11,7 +11,7 @@ with open(os.path.join(os.path.dirname(__file__), "README.md"), encoding="utf-8"
 
 setup(
     name="chkbit",
-    version="2.2.0",
+    version="2.3.0",
     url="https://github.com/laktak/chkbit-py",
     author="Christian Zangl",
     author_email="laktak@cdak.net",
