@@ -82,6 +82,10 @@ class Main:
         )
 
         parser.add_argument(
+            "-s", "--skip-symlinks", action="store_true", help="do not follow symlinks"
+        )
+
+        parser.add_argument(
             "-w",
             "--workers",
             metavar="N",
@@ -133,6 +137,7 @@ class Main:
             self.args.update,
             self.args.force,
             self.args.algo,
+            self.args.skip_symlinks
         )
 
         # start indexing
