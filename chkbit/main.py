@@ -137,7 +137,7 @@ class Main:
             self.args.update,
             self.args.force,
             self.args.algo,
-            self.args.skip_symlinks
+            self.args.skip_symlinks,
         )
 
         # start indexing
