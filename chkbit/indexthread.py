@@ -41,7 +41,6 @@ class IndexThread:
         # load index
         e = Index(parent, files, log=self._log)
         if e.load() or not self.verify_index_only:
-
             # calc the new hashes
             e.update(self.context)
 

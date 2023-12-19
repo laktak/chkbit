@@ -5,7 +5,6 @@ BLOCKSIZE = 2**10 * 128  # kb
 
 
 def hashfile(path, hash_algo=None):
-
     if not hash_algo or hash_algo == "md5":
         h = hashlib.md5()
     elif hash_algo == "sha512":

@@ -45,7 +45,7 @@ chkbit will
 Run `chkbit PATH` to verify only.
 
 ```
-usage: chkbit.py [-h] [-u] [--algo ALGO] [-f] [-i] [-s] [-w N] [-q] [-v] [PATH ...]
+usage: chkbit [-h] [-u] [--algo ALGO] [-f] [-i] [-s] [-w N] [-q] [-v] [PATH ...]
 
 Checks the data integrity of your files. See https://github.com/laktak/chkbit-py
 

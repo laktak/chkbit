@@ -30,7 +30,6 @@ class Main:
         self._parse_args()
 
     def _log(self, idx, stat, path):
-
         if stat == Stat.FLAG_MOD:
             self.modified = True
         else:
@@ -121,7 +120,6 @@ class Main:
             self.res_queue.task_done()
 
     def process(self):
-
         self.res_queue = queue.Queue()
 
         # the todo queue is used to distribute the work
