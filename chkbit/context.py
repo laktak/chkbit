@@ -6,5 +6,5 @@ class Context:
         self.hash_algo = hash_algo
         self.skip_symlinks = skip_symlinks
 
-        if hash_algo not in ["md5", "sha512"]:
+        if hash_algo not in ["md5", "sha512", "blake3"]:
             raise Exception(f"{hash_algo} is unknown.")

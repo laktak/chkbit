@@ -46,6 +46,7 @@ class Main:
 
     def _parse_args(self):
         parser = argparse.ArgumentParser(
+            prog="chkbit",
             description="Checks the data integrity of your files. See https://github.com/laktak/chkbit-py",
             epilog=STATUS_CODES,
             formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -66,7 +67,7 @@ class Main:
             "--algo",
             type=str,
             default="md5",
-            help="hash algorithm: md5, sha512",
+            help="hash algorithm: md5, sha512, blake3",
         )
 
         parser.add_argument(

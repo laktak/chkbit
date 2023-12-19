@@ -39,7 +39,7 @@ Run `chkbit -u PATH` to create/update the chkbit index.
 chkbit will
 
 - create a `.chkbit` index in every subdirectory of the path it was given.
-- update the index with md5/sha512 hashes for every file.
+- update the index with md5/sha512/blake3 hashes for every file.
 - report damage for files that failed the integrity check since the last run (check the exit status).
 
 Run `chkbit PATH` to verify only.
@@ -55,7 +55,7 @@ positional arguments:
 options:
   -h, --help           show this help message and exit
   -u, --update         update indices (without this chkbit will only verify files)
-  --algo ALGO          hash algorithm: md5, sha512
+  --algo ALGO          hash algorithm: md5, sha512, blake3
   -f, --force          force update of damaged items
   -i, --verify-index   verify files in the index only (will not report new files)
   -s, --skip-symlinks  do not follow symlinks
@@ -123,7 +123,7 @@ When you run it again it first checks the modification time,
 
 ### I wish to use a stronger hash algorithm
 
-chkbit now supports sha512. You can specify it with `--algo sha512`.
+chkbit now supports sha512 and blake3. You can specify it with `--algo sha512` or `--algo blake3`.
 
 Note that existing index files will use the hash that they were created with. If you wish to update all hashes you need to delete your existing indexes first.
 

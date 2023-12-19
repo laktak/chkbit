@@ -9,6 +9,10 @@ def hashfile(path, hash_algo=None):
         h = hashlib.md5()
     elif hash_algo == "sha512":
         h = hashlib.sha512()
+    elif hash_algo == "blake3":
+        from blake3 import blake3
+
+        h = blake3()
     else:
         raise Exception(f"{hash_algo} is unknown.")
 
