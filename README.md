@@ -22,15 +22,19 @@ Some cloud providers re-encode your videos or compress your images to save space
 
 ## Installation
 
-```
-pip install --user chkbit
-```
-
-Or in its own environment:
+The easiest way to install python CLI tools is with [pipx](https://pipx.pypa.io/latest/installation/).
 
 ```
 pipx install chkbit
 ```
+
+You can also use pip:
+
+```
+pip install --user chkbit
+```
+
+**NOTE** version 3 now uses the blake3 hash algorithm by default as it is not only better but also faster than md5.
 
 ## Usage
 
@@ -39,13 +43,13 @@ Run `chkbit -u PATH` to create/update the chkbit index.
 chkbit will
 
 - create a `.chkbit` index in every subdirectory of the path it was given.
-- update the index with md5/sha512/blake3 hashes for every file.
+- update the index with blake3 (see --algo) hashes for every file.
 - report damage for files that failed the integrity check since the last run (check the exit status).
 
 Run `chkbit PATH` to verify only.
 
 ```
-usage: chkbit [-h] [-u] [--algo ALGO] [-f] [-i] [-s] [-w N] [-q] [-v] [PATH ...]
+usage: chkbit [-h] [-u] [--algo ALGO] [-f] [-s] [--index-name NAME] [--ignore-name NAME] [-w N] [--plain] [-q] [-v] [PATH ...]
 
 Checks the data integrity of your files. See https://github.com/laktak/chkbit-py
 
@@ -54,12 +58,14 @@ positional arguments:
 
 options:
   -h, --help           show this help message and exit
-  -u, --update         update indices (without this chkbit will only verify files)
-  --algo ALGO          hash algorithm: md5, sha512, blake3
+  -u, --update         update indices (without this chkbit will verify files in readonly mode)
+  --algo ALGO          hash algorithm: md5, sha512, blake3 (default: blake3)
   -f, --force          force update of damaged items
-  -i, --verify-index   verify files in the index only (will not report new files)
   -s, --skip-symlinks  do not follow symlinks
-  -w N, --workers N    number of workers to use, default=5
+  --index-name NAME    filename where chkbit stores its hashes (default: .chkbit)
+  --ignore-name NAME   filename that chkbit reads its ignore list from (default: .chkbitignore)
+  -w N, --workers N    number of workers to use (default: 5)
+  --plain              show plain status instead of being fancy
   -q, --quiet          quiet, don't show progress/information
   -v, --verbose        verbose output
 
@@ -74,7 +80,7 @@ Status codes:
   EXC: internal exception
 ```
 
-chkbit is set to use only 5 workers by default so it will not slow your system to a crawl. You can specify a higher number to make it a lot faster (requires about 128kB of memory per worker).
+chkbit is set to use only 5 workers by default so it will not slow your system to a crawl. You can specify a higher number to make it a lot faster if the IO throughput can also keep up.
 
 ## Repair
 
@@ -123,7 +129,7 @@ When you run it again it first checks the modification time,
 
 ### I wish to use a stronger hash algorithm
 
-chkbit now supports sha512 and blake3. You can specify it with `--algo sha512` or `--algo blake3`.
+chkbit now uses blake3 by default. You can also specify it with `--algo sha512` or `--algo md5`.
 
 Note that existing index files will use the hash that they were created with. If you wish to update all hashes you need to delete your existing indexes first.
 
@@ -145,19 +151,30 @@ Create test and set the modified time:
 ```
 $ echo foo1 > test; touch -t 201501010000 test
 $ chkbit -u .
-add ./test
-Processed 1 file(s).
-Indices were updated.
+new ./test
+
+Processed 1 file.
+- 192.31 files/second
+- 0.00 MB/second
+- 1 directory was updated
+- 1 file hash was added
+- 0 file hashes were updated
 ```
-`add` indicates the file was added.
+
+`new` indicates a new file was added.
 
 Now update test with a new modified:
 ```
 $ echo foo2 > test; touch -t 201501010001 test # update test & modified
 $ chkbit -u .
 upd ./test
-Processed 1 file(s).
-Indices were updated.
+
+Processed 1 file.
+- 191.61 files/second
+- 0.00 MB/second
+- 1 directory was updated
+- 0 file hashes were added
+- 1 file hash was updated
 ```
 
 `upd` indicates the file was updated.
@@ -167,10 +184,13 @@ Now update test with the same modified to simulate damage:
 $ echo foo3 > test; touch -t 201501010001 test
 $ chkbit -u .
 DMG ./test
-Processed 0 file(s).
+
+Processed 1 file.
+- 173.93 files/second
+- 0.00 MB/second
 chkbit detected damage in these files:
 ./test
-error: detected 1 file(s) with damage!
+error: detected 1 file with damage!
 ```
 
 `DMG` indicates damage.

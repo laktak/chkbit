@@ -1,11 +1,12 @@
 import hashlib
+from typing import Callable
 
 
 BLOCKSIZE = 2**10 * 128  # kb
 
 
-def hashfile(path, hash_algo=None):
-    if not hash_algo or hash_algo == "md5":
+def hashfile(path: str, hash_algo: str, *, hit: Callable[[str], None]):
+    if hash_algo == "md5":
         h = hashlib.md5()
     elif hash_algo == "sha512":
         h = hashlib.sha512()
@@ -14,14 +15,17 @@ def hashfile(path, hash_algo=None):
 
         h = blake3()
     else:
-        raise Exception(f"{hash_algo} is unknown.")
+        raise Exception(f"algo '{hash_algo}' is unknown.")
 
     with open(path, "rb") as f:
         while True:
             buf = f.read(BLOCKSIZE)
-            if len(buf) <= 0:
+            l = len(buf)
+            if l <= 0:
                 break
             h.update(buf)
+            if hit:
+                hit(l)
     return h.hexdigest()
 
 
