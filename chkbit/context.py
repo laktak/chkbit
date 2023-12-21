@@ -1,5 +1,5 @@
 import queue
-from chkbit import Status
+from .status import Status
 
 
 class Context:

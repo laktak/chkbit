@@ -6,8 +6,8 @@ import sys
 import threading
 import time
 from datetime import datetime, timedelta
-from chkbit import Context, Status, IndexThread
-from cli import CLI, Progress, RateCalc, sparkify
+from .. import Context, Status, IndexThread
+from . import CLI, Progress, RateCalc, sparkify
 
 
 STATUS_CODES = """

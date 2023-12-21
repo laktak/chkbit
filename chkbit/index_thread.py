@@ -2,7 +2,7 @@ import os
 import sys
 import time
 import threading
-from chkbit import Index, Status
+from . import Index, Status
 
 
 class IndexThread:

@@ -3,7 +3,7 @@ import os
 import subprocess
 import sys
 import json
-from chkbit import hashfile, hashtext, Status
+from . import hashfile, hashtext, Status
 
 VERSION = 2  # index version
 

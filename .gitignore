@@ -1,4 +1,5 @@
 README.rst
+build/
 dist/
 .cache/
 .chkbit
