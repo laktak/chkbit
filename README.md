@@ -129,9 +129,9 @@ When you run it again it first checks the modification time,
 
 ### I wish to use a stronger hash algorithm
 
-chkbit now uses blake3 by default. You can also specify it with `--algo sha512` or `--algo md5`.
+chkbit now uses blake3 by default. You can also specify `--algo sha512` or `--algo md5`.
 
-Note that existing index files will use the hash that they were created with. If you wish to update all hashes you need to delete your existing indexes first.
+Note that existing index files will use the hash that they were created with. If you wish to update all hashes you need to delete your existing indexes first. A conversion mode may be added later (PR welcome).
 
 ### How can I delete the index files?
 
