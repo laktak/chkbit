@@ -195,3 +195,25 @@ error: detected 1 file with damage!
 
 `DMG` indicates damage.
 
+## Development
+
+With pipenv (install with `pipx install pipenv`):
+
+```
+# setup
+pipenv install
+
+# run chkbit
+pipenv run python3 -m cli.main
+```
+
+To build a source distribution package from pyproject.toml
+```
+pipx run build
+```
+
+You can then install your own package with
+```
+pipx install dist/chkbit-*.tar.gz
+```
+
