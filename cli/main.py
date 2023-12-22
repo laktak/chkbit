@@ -183,9 +183,15 @@ class Main:
             )
 
             if self.progress == Progress.Fancy and self.total > 0:
-                elapsed = (datetime.now() - self.fps.start).total_seconds()
-                print(f"- {(self.fps.total+self.fps.current)/elapsed:.2f} files/second")
-                print(f"- {(self.bps.total+self.bps.current)/MB/elapsed:.2f} MB/second")
+                elapsed = datetime.now() - self.fps.start
+                elapsed_s = elapsed.total_seconds()
+                print(f"- {str(elapsed).split('.')[0]} elapsed")
+                print(
+                    f"- {(self.fps.total+self.fps.current)/elapsed_s:.2f} files/second"
+                )
+                print(
+                    f"- {(self.bps.total+self.bps.current)/MB/elapsed_s:.2f} MB/second"
+                )
 
             if context.update:
                 if self.num_idx_upd:
