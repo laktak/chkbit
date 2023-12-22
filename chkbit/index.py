@@ -41,7 +41,7 @@ class Index:
         self.context.log(stat, os.path.join(self.path, name))
 
     # calc new hashes for this index
-    def update(self):
+    def update(self, update):
         for name in self.files:
             if self.should_ignore(name):
                 self._log(Status.SKIP, name)
@@ -57,7 +57,12 @@ class Index:
                     self.old[name] = {"mod": old["mod"], "a": a, "h": old["md5"]}
                 elif "a" in old:
                     a = old["a"]
-            self.new[name] = self._calc_file(name, a)
+                self.new[name] = self._calc_file(name, a)
+            else:
+                if update:
+                    self.new[name] = self._calc_file(name, a)
+                else:
+                    self.new[name] = self._list_file(name, a)
 
     # check/update the index (old vs new)
     def check_fix(self, force):
@@ -94,6 +99,15 @@ class Index:
             elif amod > bmod:
                 self._log(Status.WARN_OLD, name)
                 self._setmod()
+
+    def _list_file(self, name, a):
+        path = os.path.join(self.path, name)
+        self.context.hit(cfiles=1)
+        return {
+            "mod": None,
+            "a": a,
+            "h": None,
+        }
 
     def _calc_file(self, name, a):
         path = os.path.join(self.path, name)

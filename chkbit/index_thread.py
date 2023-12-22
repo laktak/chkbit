@@ -37,7 +37,7 @@ class IndexThread:
         index.load()
 
         # calc the new hashes
-        index.update()
+        index.update(self.update)
 
         # compare
         index.check_fix(self.context.force)
