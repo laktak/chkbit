@@ -16,7 +16,7 @@ license = {file = "LICENSE"}
 Homepage = "https://github.com/laktak/chkbit-py"
 
 [project.scripts]
-chkbit = "cli.main:main"
+chkbit = "chkbit_cli.main:main"
 
 [tool.setuptools.packages.find]
-include = ["chkbit","cli"]
+include = ["chkbit","chkbit_cli"]

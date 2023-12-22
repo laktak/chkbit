@@ -155,6 +155,7 @@ $ chkbit -u .
 new ./test
 
 Processed 1 file.
+- 0:00:00 elapsed
 - 192.31 files/second
 - 0.00 MB/second
 - 1 directory was updated
@@ -171,6 +172,7 @@ $ chkbit -u .
 upd ./test
 
 Processed 1 file.
+- 0:00:00 elapsed
 - 191.61 files/second
 - 0.00 MB/second
 - 1 directory was updated
@@ -187,6 +189,7 @@ $ chkbit -u .
 DMG ./test
 
 Processed 1 file.
+- 0:00:00 elapsed
 - 173.93 files/second
 - 0.00 MB/second
 chkbit detected damage in these files:
@@ -205,7 +208,7 @@ With pipenv (install with `pipx install pipenv`):
 pipenv install
 
 # run chkbit
-pipenv run python3 -m cli.main
+pipenv run python3 -m chkbit_cli.main
 ```
 
 To build a source distribution package from pyproject.toml
