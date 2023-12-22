@@ -33,11 +33,11 @@ class IndexThread:
                 files.append(name)
 
         # load index
-        index = Index(self.context, parent, files)
+        index = Index(self.context, parent, files, readonly=not self.update)
         index.load()
 
         # calc the new hashes
-        index.update(self.update)
+        index.update()
 
         # compare
         index.check_fix(self.context.force)

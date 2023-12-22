@@ -9,7 +9,7 @@ VERSION = 2  # index version
 
 
 class Index:
-    def __init__(self, context, path, files):
+    def __init__(self, context, path, files, *, readonly=False):
         self.context = context
         self.path = path
         self.files = files
@@ -18,7 +18,8 @@ class Index:
         self.ignore = []
         self.load_ignore()
         self.updates = []
-        self.modified = True
+        self.modified = None
+        self.readonly = readonly
 
     @property
     def ignore_filepath(self):
@@ -34,14 +35,14 @@ class Index:
                 return True
         return False
 
-    def _setmod(self):
-        self.modified = True
+    def _setmod(self, value=True):
+        self.modified = value
 
     def _log(self, stat: Status, name: str):
         self.context.log(stat, os.path.join(self.path, name))
 
     # calc new hashes for this index
-    def update(self, update):
+    def update(self):
         for name in self.files:
             if self.should_ignore(name):
                 self._log(Status.SKIP, name)
@@ -59,10 +60,10 @@ class Index:
                     a = old["a"]
                 self.new[name] = self._calc_file(name, a)
             else:
-                if update:
-                    self.new[name] = self._calc_file(name, a)
-                else:
+                if self.readonly:
                     self.new[name] = self._list_file(name, a)
+                else:
+                    self.new[name] = self._calc_file(name, a)
 
     # check/update the index (old vs new)
     def check_fix(self, force):
@@ -101,8 +102,7 @@ class Index:
                 self._setmod()
 
     def _list_file(self, name, a):
-        path = os.path.join(self.path, name)
-        self.context.hit(cfiles=1)
+        # produce a dummy entry for new files when the index is not updated
         return {
             "mod": None,
             "a": a,
@@ -123,13 +123,16 @@ class Index:
 
     def save(self):
         if self.modified:
+            if self.readonly:
+                raise Exception("Error trying to save a readonly index.")
+
             data = {"v": VERSION, "idx": self.new}
             text = json.dumps(self.new, separators=(",", ":"))
             data["idx_hash"] = hashtext(text)
 
             with open(self.index_filepath, "w", encoding="utf-8") as f:
                 json.dump(data, f, separators=(",", ":"))
-            self.modified = False
+            self._setmod(False)
             return True
         else:
             return False
@@ -137,7 +140,7 @@ class Index:
     def load(self):
         if not os.path.exists(self.index_filepath):
             return False
-        self.modified = False
+        self._setmod(False)
         with open(self.index_filepath, "r", encoding="utf-8") as f:
             data = json.load(f)
             if "data" in data:
@@ -152,7 +155,7 @@ class Index:
                 self.old = data["idx"]
                 text = json.dumps(self.old, separators=(",", ":"))
                 if data.get("idx_hash") != hashtext(text):
-                    self.modified = True
+                    self._setmod()
                     self._log(Status.ERR_IDX, self.index_filepath)
         return True
 
