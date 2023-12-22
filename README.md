@@ -100,6 +100,7 @@ Add a `.chkbitignore` file containing the names of the files/directories you wis
 - each line should contain exactly one name
 - lines starting with `#` are skipped
 - you may use [Unix shell-style wildcards](https://docs.python.org/3.8/library/fnmatch.html)
+- at the moment does not allow to match files in subdirectories (PR welcome)
 
 ## FAQ
 
