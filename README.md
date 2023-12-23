@@ -1,22 +1,47 @@
+
 # chkbit
 
 chkbit is a lightweight tool to check the data integrity of your files. It allows you to verify *that the data has not changed* since you put it there and that it is still the same when you move it somewhere else.
+
+- [Use it](#use-it)
+  - [On your Disk](#on-your-disk)
+  - [On your Backup](#on-your-backup)
+  - [For Data in the Cloud](#for-data-in-the-cloud)
+- [Installation](#installation)
+- [Usage](#usage)
+- [Repair](#repair)
+- [Ignore files](#ignore-files)
+- [FAQ](#faq)
+  - [Should I run `chkbit` on my whole drive?](#should-i-run-chkbit-on-my-whole-drive)
+  - [Why is chkbit placing the index in `.chkbit` files (vs a database)?](#why-is-chkbit-placing-the-index-in-chkbit-files-vs-a-database)
+  - [How does chkbit work?](#how-does-chkbit-work)
+  - [I wish to use a stronger hash algorithm](#i-wish-to-use-a-stronger-hash-algorithm)
+  - [How can I delete the index files?](#how-can-i-delete-the-index-files)
+  - [Can I test if chkbit is working correctly?](#can-i-test-if-chkbit-is-working-correctly)
+- [Development](#development)
+
+## Use it
 
 ### On your Disk
 
 chkbit starts with your primary disk. It creates checksums for each folder that will follow your data onto your backups.
 
-Even though your filesystems should have built in checksums, it is usually not trivial to take them onto another media.
+Here it alerts you to
+- damage on the disk
+- damage caused by filesystem errors
+- damage caused by malware (when it encrypts your files)
 
-### On your backup
+The built in checksums from your filesystems only cover some of these cases.
+
+### On your Backup
 
 No matter what storage media or filesystem you use, chkbit stores its indexes in hidden files that are backed up together with your data.
 
-When you run chkbit-verify on your backup media you can make sure that every byte was correctly transferred.
+When you run chkbit on your backup media you can verify that every byte was correctly transferred.
 
-If your backup media fails or experiences [bitrot/data degradation](https://en.wikipedia.org/wiki/Data_degradation), chkbit allows you to discover what files were damaged and need to be replaced by other backups.
+If your backup media fails or experiences [bitrot/data degradation](https://en.wikipedia.org/wiki/Data_degradation), chkbit allows you to discover what files were damaged and need to be replaced by other backups. You should always keep multiple backups :)
 
-### Data in the Cloud
+### For Data in the Cloud
 
 Some cloud providers re-encode your videos or compress your images to save space. chkbit will alert you of any changes.
 
