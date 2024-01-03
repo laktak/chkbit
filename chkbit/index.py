@@ -1,39 +1,37 @@
+from __future__ import annotations
 import fnmatch
 import os
 import subprocess
 import sys
 import json
+import chkbit
 from chkbit import hashfile, hashtext, Status
+from typing import Optional
 
 VERSION = 2  # index version
 
 
 class Index:
-    def __init__(self, context, path, files, *, readonly=False):
+    def __init__(
+        self,
+        context: chkbit.Context,
+        path: str,
+        files: list[str],
+        *,
+        readonly: bool = False,
+    ):
         self.context = context
         self.path = path
         self.files = files
         self.old = {}
         self.new = {}
-        self.ignore = []
-        self.load_ignore()
         self.updates = []
         self.modified = None
         self.readonly = readonly
 
     @property
-    def ignore_filepath(self):
-        return os.path.join(self.path, self.context.ignore_filename)
-
-    @property
     def index_filepath(self):
         return os.path.join(self.path, self.context.index_filename)
-
-    def should_ignore(self, name):
-        for ignore in self.ignore:
-            if fnmatch.fnmatch(name, ignore):
-                return True
-        return False
 
     def _setmod(self, value=True):
         self.modified = value
@@ -42,10 +40,10 @@ class Index:
         self.context.log(stat, os.path.join(self.path, name))
 
     # calc new hashes for this index
-    def update(self):
+    def calc_hashes(self, *, ignore: Optional[chkbit.Ignore] = None):
         for name in self.files:
-            if self.should_ignore(name):
-                self._log(Status.SKIP, name)
+            if ignore and ignore.should_ignore(name):
+                self._log(Status.IGNORE, name)
                 continue
 
             a = self.context.hash_algo
@@ -65,8 +63,13 @@ class Index:
                 else:
                     self.new[name] = self._calc_file(name, a)
 
+    def show_ignored_only(self, ignore: chkbit.Ignore):
+        for name in self.files:
+            if ignore.should_ignore(name):
+                self._log(Status.IGNORE, name)
+
     # check/update the index (old vs new)
-    def check_fix(self, force):
+    def check_fix(self, force: bool):
         for name in self.new.keys():
             if not name in self.old:
                 self._log(Status.NEW, name)
@@ -101,7 +104,7 @@ class Index:
                 self._log(Status.WARN_OLD, name)
                 self._setmod()
 
-    def _list_file(self, name, a):
+    def _list_file(self, name: str, a: str):
         # produce a dummy entry for new files when the index is not updated
         return {
             "mod": None,
@@ -109,7 +112,7 @@ class Index:
             "h": None,
         }
 
-    def _calc_file(self, name, a):
+    def _calc_file(self, name: str, a: str):
         path = os.path.join(self.path, name)
         info = os.stat(path)
         mtime = int(info.st_mtime * 1000)
@@ -158,15 +161,3 @@ class Index:
                     self._setmod()
                     self._log(Status.ERR_IDX, self.index_filepath)
         return True
-
-    def load_ignore(self):
-        if not os.path.exists(self.ignore_filepath):
-            return
-        with open(self.ignore_filepath, "r", encoding="utf-8") as f:
-            text = f.read()
-
-        self.ignore = list(
-            filter(
-                lambda x: x and x[0] != "#" and len(x.strip()) > 0, text.splitlines()
-            )
-        )

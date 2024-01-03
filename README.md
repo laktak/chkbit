@@ -74,7 +74,7 @@ chkbit will
 Run `chkbit PATH` to verify only.
 
 ```
-usage: chkbit [-h] [-u] [--algo ALGO] [-f] [-s] [--index-name NAME] [--ignore-name NAME] [-w N] [--plain] [-q] [-v] [PATH ...]
+usage: chkbit [-h] [-u] [--show-ignored-only] [--algo ALGO] [-f] [-s] [--index-name NAME] [--ignore-name NAME] [-w N] [--plain] [-q] [-v] [PATH ...]
 
 Checks the data integrity of your files. See https://github.com/laktak/chkbit-py
 
@@ -84,6 +84,7 @@ positional arguments:
 options:
   -h, --help           show this help message and exit
   -u, --update         update indices (without this chkbit will verify files in readonly mode)
+  --show-ignored-only  only show ignored files
   --algo ALGO          hash algorithm: md5, sha512, blake3 (default: blake3)
   -f, --force          force update of damaged items
   -s, --skip-symlinks  do not follow symlinks
@@ -94,6 +95,12 @@ options:
   -q, --quiet          quiet, don't show progress/information
   -v, --verbose        verbose output
 
+.chkbitignore rules:
+  each line should contain exactly one name
+  you may use Unix shell-style wildcards (see README)
+  lines starting with `#` are skipped
+  lines starting with `/` are only applied to the current directory
+
 Status codes:
   DMG: error, data damage detected
   EIX: error, index damaged
@@ -101,7 +108,7 @@ Status codes:
   new: new file
   upd: file updated
   ok : check ok
-  skp: skipped (see .chkbitignore)
+  ign: ignored (see .chkbitignore)
   EXC: internal exception
 ```
 
@@ -123,9 +130,13 @@ You should
 Add a `.chkbitignore` file containing the names of the files/directories you wish to ignore
 
 - each line should contain exactly one name
+- you may use [Unix shell-style wildcards](https://docs.python.org/3/library/fnmatch.html)
+  - `*` matches everything
+  - `?`  matches any single character
+  - `[seq]` matches any character in seq
+  - `[!seq]` matches any character not in seq
 - lines starting with `#` are skipped
-- you may use [Unix shell-style wildcards](https://docs.python.org/3.8/library/fnmatch.html)
-- at the moment does not allow to match files in subdirectories (PR welcome)
+- lines starting with `/` are only applied to the current directory
 
 ## FAQ
 

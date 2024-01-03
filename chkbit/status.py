@@ -8,6 +8,6 @@ class Status(Enum):
     NEW = "new"
     UPDATE = "upd"
     OK = "ok "
-    SKIP = "skp"
+    IGNORE = "ign"
     INTERNALEXCEPTION = "EXC"
     UPDATE_INDEX = "iup"

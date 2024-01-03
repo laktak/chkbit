@@ -10,7 +10,13 @@ from chkbit import Context, Status, IndexThread
 from chkbit_cli import CLI, Progress, RateCalc, sparkify
 
 
-STATUS_CODES = """
+EPILOG = """
+.chkbitignore rules:
+  each line should contain exactly one name
+  you may use Unix shell-style wildcards (see README)
+  lines starting with `#` are skipped
+  lines starting with `/` are only applied to the current directory
+
 Status codes:
   DMG: error, data damage detected
   EIX: error, index damaged
@@ -18,7 +24,7 @@ Status codes:
   new: new file
   upd: file updated
   ok : check ok
-  skp: skipped (see .chkbitignore)
+  ign: ignored (see .chkbitignore)
   EXC: internal exception
 """
 
@@ -67,7 +73,7 @@ class Main:
                 elif stat == Status.NEW:
                     self.num_new += 1
 
-            if self.verbose or not stat in [Status.OK, Status.SKIP]:
+            if self.verbose or not stat in [Status.OK, Status.IGNORE]:
                 CLI.printline(stat.value, " ", path)
 
     def _res_worker(self, context: Context):
@@ -113,18 +119,15 @@ class Main:
                     print(self.total, end="\r")
 
     def process(self, args):
-        # the input queue is used to distribute the work
-        # to the index threads
-        input_queue = queue.Queue()
-
-        # put the initial paths into the queue
-        for path in args.paths:
-            input_queue.put(path)
+        if args.update and args.show_ignored_only:
+            print("Error: use either --update or --show-ignored-only!", file=sys.stderr)
+            return None
 
         context = Context(
             num_workers=args.workers,
             force=args.force,
             update=args.update,
+            show_ignored_only=args.show_ignored_only,
             hash_algo=args.algo,
             skip_symlinks=args.skip_symlinks,
             index_filename=args.index_name,
@@ -132,10 +135,12 @@ class Main:
         )
         self.result_queue = context.result_queue
 
+        # put the initial paths into the queue
+        for path in args.paths:
+            context.add_input(path)
+
         # start indexing
-        workers = [
-            IndexThread(i, context, input_queue) for i in range(context.num_workers)
-        ]
+        workers = [IndexThread(i, context) for i in range(context.num_workers)]
 
         # log the results from the workers
         res_worker = threading.Thread(target=self._res_worker, args=(context,))
@@ -143,11 +148,11 @@ class Main:
         res_worker.start()
 
         # wait for work to finish
-        input_queue.join()
+        context.input_queue.join()
 
         # signal workers to exit
         for worker in workers:
-            input_queue.put(None)
+            context.end_input()
 
         # signal res_worker to exit
         self.result_queue.put(None)
@@ -231,7 +236,7 @@ class Main:
         parser = argparse.ArgumentParser(
             prog="chkbit",
             description="Checks the data integrity of your files. See https://github.com/laktak/chkbit-py",
-            epilog=STATUS_CODES,
+            epilog=EPILOG,
             formatter_class=argparse.RawDescriptionHelpFormatter,
         )
 
@@ -244,6 +249,10 @@ class Main:
             "--update",
             action="store_true",
             help="update indices (without this chkbit will verify files in readonly mode)",
+        )
+
+        parser.add_argument(
+            "--show-ignored-only", action="store_true", help="only show ignored files"
         )
 
         parser.add_argument(
@@ -305,7 +314,7 @@ class Main:
 
         args = parser.parse_args()
 
-        self.verbose = args.verbose
+        self.verbose = args.verbose or args.show_ignored_only
         if args.quiet:
             self.progress = Progress.Quiet
         elif not sys.stdout.isatty():
@@ -315,7 +324,8 @@ class Main:
 
         if args.paths:
             context = self.process(args)
-            self.print_result(context)
+            if context and not context.show_ignored_only:
+                self.print_result(context)
         else:
             parser.print_help()
 
