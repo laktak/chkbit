@@ -74,26 +74,29 @@ chkbit will
 Run `chkbit PATH` to verify only.
 
 ```
-usage: chkbit [-h] [-u] [--show-ignored-only] [--algo ALGO] [-f] [-s] [--index-name NAME] [--ignore-name NAME] [-w N] [--plain] [-q] [-v] [PATH ...]
+usage: chkbit [-h] [-u] [--show-ignored-only] [--algo ALGO] [-f] [-s] [-l FILE] [--log-verbose] [--index-name NAME] [--ignore-name NAME] [-w N] [--plain] [-q] [-v] [PATH ...]
 
 Checks the data integrity of your files. See https://github.com/laktak/chkbit-py
 
 positional arguments:
-  PATH                 directories to check
+  PATH                  directories to check
 
 options:
-  -h, --help           show this help message and exit
-  -u, --update         update indices (without this chkbit will verify files in readonly mode)
-  --show-ignored-only  only show ignored files
-  --algo ALGO          hash algorithm: md5, sha512, blake3 (default: blake3)
-  -f, --force          force update of damaged items
-  -s, --skip-symlinks  do not follow symlinks
-  --index-name NAME    filename where chkbit stores its hashes (default: .chkbit)
-  --ignore-name NAME   filename that chkbit reads its ignore list from (default: .chkbitignore)
-  -w N, --workers N    number of workers to use (default: 5)
-  --plain              show plain status instead of being fancy
-  -q, --quiet          quiet, don't show progress/information
-  -v, --verbose        verbose output
+  -h, --help            show this help message and exit
+  -u, --update          update indices (without this chkbit will verify files in readonly mode)
+  --show-ignored-only   only show ignored files
+  --algo ALGO           hash algorithm: md5, sha512, blake3 (default: blake3)
+  -f, --force           force update of damaged items
+  -s, --skip-symlinks   do not follow symlinks
+  -l FILE, --log-file FILE
+                        write to a logfile if specified
+  --log-verbose         verbose logging
+  --index-name NAME     filename where chkbit stores its hashes (default: .chkbit)
+  --ignore-name NAME    filename that chkbit reads its ignore list from (default: .chkbitignore)
+  -w N, --workers N     number of workers to use (default: 5)
+  --plain               show plain status instead of being fancy
+  -q, --quiet           quiet, don't show progress/information
+  -v, --verbose         verbose output
 
 .chkbitignore rules:
   each line should contain exactly one name

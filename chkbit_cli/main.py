@@ -1,4 +1,5 @@
 import argparse
+import logging
 import os
 import queue
 import shutil
@@ -50,12 +51,16 @@ class Main:
         self.num_new = 0
         self.num_upd = 0
         self.verbose = False
+        self.log = logging.getLogger("")
+        self.log_verbose = False
         self.progress = Progress.Fancy
         self.total = 0
         self.term_width = shutil.get_terminal_size()[0]
         max_stat = int((self.term_width - 70) / 2)
         self.fps = RateCalc(timedelta(seconds=1), max_stat=max_stat)
         self.bps = RateCalc(timedelta(seconds=1), max_stat=max_stat)
+        # disable
+        self.log.setLevel(logging.CRITICAL + 1)
 
     def _log(self, stat: Status, path: str):
         if stat == Status.UPDATE_INDEX:
@@ -73,8 +78,18 @@ class Main:
                 elif stat == Status.NEW:
                     self.num_new += 1
 
+            lvl = Status.get_level(stat)
+            if self.log_verbose or not stat in [Status.OK, Status.IGNORE]:
+                self.log.log(lvl, f"{stat.value} {path}")
+
             if self.verbose or not stat in [Status.OK, Status.IGNORE]:
-                CLI.printline(stat.value, " ", path)
+                CLI.printline(
+                    CLI_ALERT_FG if lvl >= logging.WARNING else "",
+                    stat.value,
+                    " ",
+                    path,
+                    CLI.style.reset,
+                )
 
     def _res_worker(self, context: Context):
         last = datetime.now()
@@ -182,10 +197,9 @@ class Main:
         iunit2 = lambda x, u1, u2: f"{x} {u2 if x!=1 else u1}"
 
         if self.progress != Progress.Quiet:
-            cprint(
-                CLI_OK_FG,
-                f"Processed {iunit(self.total, 'file')}{' in readonly mode' if not context.update else ''}.",
-            )
+            status = f"Processed {iunit(self.total, 'file')}{' in readonly mode' if not context.update else ''}."
+            cprint(CLI_OK_FG, status)
+            self.log.info(status)
 
             if self.progress == Progress.Fancy and self.total > 0:
                 elapsed = datetime.now() - self.fps.start
@@ -219,13 +233,14 @@ class Main:
             for err in self.dmg_list:
                 print(err, file=sys.stderr)
             n = len(self.dmg_list)
-            eprint(
-                CLI_ALERT_FG,
-                f"error: detected {iunit(n, 'file')} with damage!",
-            )
+            status = f"error: detected {iunit(n, 'file')} with damage!"
+            self.log.error(status)
+            eprint(CLI_ALERT_FG, status)
 
         if self.err_list:
-            eprint(CLI_ALERT_FG, "chkbit ran into errors:")
+            status = "chkbit ran into errors"
+            self.log.error(status + "!")
+            eprint(CLI_ALERT_FG, status + ":")
             for err in self.err_list:
                 print(err, file=sys.stderr)
 
@@ -268,6 +283,18 @@ class Main:
 
         parser.add_argument(
             "-s", "--skip-symlinks", action="store_true", help="do not follow symlinks"
+        )
+
+        parser.add_argument(
+            "-l",
+            "--log-file",
+            metavar="FILE",
+            type=str,
+            help="write to a logfile if specified",
+        )
+
+        parser.add_argument(
+            "--log-verbose", action="store_true", help="verbose logging"
         )
 
         parser.add_argument(
@@ -315,6 +342,18 @@ class Main:
         args = parser.parse_args()
 
         self.verbose = args.verbose or args.show_ignored_only
+        if args.log_file:
+            self.log_verbose = args.log_verbose
+            self.log.setLevel(logging.INFO)
+            fh = logging.FileHandler(args.log_file)
+            fh.setFormatter(
+                logging.Formatter(
+                    "%(asctime)s %(levelname).4s %(message)s",
+                    datefmt="%Y-%m-%d %H:%M:%S",
+                )
+            )
+            self.log.addHandler(fh)
+
         if args.quiet:
             self.progress = Progress.Quiet
         elif not sys.stdout.isatty():
@@ -323,6 +362,7 @@ class Main:
             self.progress = Progress.Plain
 
         if args.paths:
+            self.log.info(f"chkbit {', '.join(args.paths)}")
             context = self.process(args)
             if context and not context.show_ignored_only:
                 self.print_result(context)
