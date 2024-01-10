@@ -302,14 +302,14 @@ class Main:
             metavar="NAME",
             type=str,
             default=".chkbit",
-            help="filename where chkbit stores its hashes (default: .chkbit)",
+            help="filename where chkbit stores its hashes, needs to start with '.' (default: .chkbit)",
         )
         parser.add_argument(
             "--ignore-name",
             metavar="NAME",
             type=str,
             default=".chkbitignore",
-            help="filename that chkbit reads its ignore list from (default: .chkbitignore)",
+            help="filename that chkbit reads its ignore list from, needs to start with '.' (default: .chkbitignore)",
         )
 
         parser.add_argument(
@@ -375,6 +375,9 @@ def main():
         Main().run()
     except KeyboardInterrupt:
         print("abort")
+        sys.exit(1)
+    except Exception as e:
+        print(e, file=sys.stderr)
         sys.exit(1)
 
 

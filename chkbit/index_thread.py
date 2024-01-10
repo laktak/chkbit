@@ -25,6 +25,10 @@ class IndexThread:
         for name in os.listdir(path=iitem.path):
             path = os.path.join(iitem.path, name)
             if name[0] == ".":
+                if self.context.show_ignored_only and not self.context.is_chkbit_file(
+                    name
+                ):
+                    self.context.log(Status.IGNORE, path)
                 continue
             if os.path.isdir(path):
                 if self.context.skip_symlinks and os.path.islink(path):

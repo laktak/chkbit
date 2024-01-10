@@ -91,8 +91,8 @@ options:
   -l FILE, --log-file FILE
                         write to a logfile if specified
   --log-verbose         verbose logging
-  --index-name NAME     filename where chkbit stores its hashes (default: .chkbit)
-  --ignore-name NAME    filename that chkbit reads its ignore list from (default: .chkbitignore)
+  --index-name NAME     filename where chkbit stores its hashes, needs to start with '.' (default: .chkbit)
+  --ignore-name NAME    filename that chkbit reads its ignore list from, needs to start with '.' (default: .chkbitignore)
   -w N, --workers N     number of workers to use (default: 5)
   --plain               show plain status instead of being fancy
   -q, --quiet           quiet, don't show progress/information
@@ -140,6 +140,8 @@ Add a `.chkbitignore` file containing the names of the files/directories you wis
   - `[!seq]` matches any character not in seq
 - lines starting with `#` are skipped
 - lines starting with `/` are only applied to the current directory
+- you can use `path/sub/name` to ignore a file/directory in a sub path
+- hidden files (starting with a `.`) are ignored by default
 
 ## FAQ
 

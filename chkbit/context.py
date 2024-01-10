@@ -27,6 +27,11 @@ class Context:
         self.index_filename = index_filename
         self.ignore_filename = ignore_filename
 
+        if not index_filename.startswith("."):
+            raise Exception("The index filename must start with a dot!")
+        if not ignore_filename.startswith("."):
+            raise Exception("The ignore filename must start with a dot!")
+
         # the input queue is used to distribute the work
         # to the index threads
         self.input_queue = queue.Queue()
@@ -48,3 +53,6 @@ class Context:
 
     def end_input(self):
         self.input_queue.put(None)
+
+    def is_chkbit_file(self, name):
+        return name in [self.index_filename, self.ignore_filename]
