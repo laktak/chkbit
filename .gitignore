@@ -1,5 +1,7 @@
 README.rst
+build/
 dist/
+chkbit.spec
 .cache/
 .chkbit
 .pytest_cache/

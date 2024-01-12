@@ -3,6 +3,7 @@ url = "https://pypi.org/simple"
 verify_ssl = true
 name = "pypi"
 
+# keep in sync with pyproject.toml
 [packages]
 blake3 = ">=0.3.4"
 

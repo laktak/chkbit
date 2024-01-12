@@ -1,4 +1,5 @@
 import hashlib
+from blake3 import blake3
 from typing import Callable
 
 
@@ -11,8 +12,6 @@ def hashfile(path: str, hash_algo: str, *, hit: Callable[[str], None]):
     elif hash_algo == "sha512":
         h = hashlib.sha512()
     elif hash_algo == "blake3":
-        from blake3 import blake3
-
         h = blake3()
     else:
         raise Exception(f"algo '{hash_algo}' is unknown.")
