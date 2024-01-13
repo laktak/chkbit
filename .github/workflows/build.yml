@@ -1,4 +1,5 @@
-name: pyinstaller
+
+name: build
 
 on: [push]
 
@@ -15,6 +16,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+
       - name: prep
         shell: bash
         run: |
@@ -22,6 +24,7 @@ jobs:
           python -m pip install pipenv pyinstaller==6.3.0
           pipenv install
           rm -rf build dist
+
       - name: build
         shell: bash
         run: |
@@ -32,28 +35,58 @@ jobs:
           pipenv run pyinstaller run.py --hidden-import chkbit --hidden-import chkbit_cli --onefile --name chkbit --console --paths $SITEPKG
           cat build/chkbit/warn-chkbit.txt
           cd dist; ls -l
-          if [ "$RUNNER_OS" == "Windows" ]; then
-              7z a -tzip chkbit.zip chkbit.exe
+          if [ "$RUNNER_OS" == "Linux" ]; then
+              tar -czf chkbit-linux_amd64.tar.gz chkbit
+          elif [ "$RUNNER_OS" == "macOS" ]; then
+              tar -czf chkbit-macos_amd64.tar.gz chkbit
+          elif [ "$RUNNER_OS" == "Windows" ]; then
+              7z a -tzip chkbit-windows_amd64.zip chkbit.exe
           else
-              tar -czf chkbit.tar.gz chkbit
+              echo 'unknown runner'
+              exit 1
           fi
+
       - name: artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         if: runner.os == 'Linux'
         with:
-          name: chkbit-linux_amd64.tar.gz
-          path: dist/chkbit.tar.gz
+          name: binary-${{ matrix.os }}
+          path: dist/chkbit*.tar.gz
+
       - name: artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         if: runner.os == 'macOS'
         with:
-          name: chkbit-macos_amd64.tar.gz
-          path: dist/chkbit.tar.gz
+          name: binary-${{ matrix.os }}
+          path: dist/chkbit*.tar.gz
+
       - name: artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         if: runner.os == 'Windows'
         with:
-          name: chkbit-windows_amd64.zip
-          path: dist/chkbit.zip
+          name: binary-${{ matrix.os }}
+          path: dist/chkbit*.zip
 
+
+  publish:
+    runs-on: ubuntu-latest
+    needs: build
+    if: ${{ startsWith(github.ref, 'refs/tags/v') }}
+
+    steps:
+      - name: get-artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - name: list
+        shell: bash
+        run: |
+          find
+          ls -l dist
+      - name: publish-release
+        uses: softprops/action-gh-release@v1
+        with:
+          draft: true
+          files: dist/*
 
