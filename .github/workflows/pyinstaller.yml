@@ -4,7 +4,12 @@ on: [push]
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+
+    runs-on: ${{ matrix.os }}
+
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -20,11 +25,35 @@ jobs:
       - name: build
         shell: bash
         run: |
-          pipenv --venv
-          pipenv run pyinstaller run.py --hidden-import chkbit --hidden-import chkbit_cli --onefile --name chkbit --console --paths $(pipenv --venv)/lib/*/site-packages
+          echo "RUNNER_OS: $RUNNER_OS"
+          # get path to venv site-packages (for blake3)
+          pipenv run python -c "import site; print(site.getsitepackages())"
+          SITEPKG=$(pipenv run python -c "import site; print(site.getsitepackages()[-1])")
+          pipenv run pyinstaller run.py --hidden-import chkbit --hidden-import chkbit_cli --onefile --name chkbit --console --paths $SITEPKG
           cat build/chkbit/warn-chkbit.txt
+          cd dist; ls -l
+          if [ "$RUNNER_OS" == "Windows" ]; then
+              7z a -tzip chkbit.zip chkbit.exe
+          else
+              tar -czf chkbit.tar.gz chkbit
+          fi
       - name: artifact
         uses: actions/upload-artifact@v3
+        if: runner.os == 'Linux'
         with:
-          name: chkbit
-          path: dist/chkbit
+          name: chkbit-linux_amd64.tar.gz
+          path: dist/chkbit.tar.gz
+      - name: artifact
+        uses: actions/upload-artifact@v3
+        if: runner.os == 'macOS'
+        with:
+          name: chkbit-macos_amd64.tar.gz
+          path: dist/chkbit.tar.gz
+      - name: artifact
+        uses: actions/upload-artifact@v3
+        if: runner.os == 'Windows'
+        with:
+          name: chkbit-windows_amd64.zip
+          path: dist/chkbit.zip
+
+
