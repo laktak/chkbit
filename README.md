@@ -3,6 +3,8 @@
 
 chkbit is a lightweight tool to check the data integrity of your files. It allows you to verify *that the data has not changed* since you put it there and that it is still the same when you move it somewhere else.
 
+cross-platform support for [Linux, macOS and Windows](https://github.com/laktak/chkbit-py/releases)!
+
 - [Use it](#use-it)
   - [On your Disk](#on-your-disk)
   - [On your Backup](#on-your-backup)
@@ -47,19 +49,12 @@ Some cloud providers re-encode your videos or compress your images to save space
 
 ## Installation
 
-The easiest way to install python CLI tools is with [pipx](https://pipx.pypa.io/latest/installation/).
+Download: You can download a release directly from [github releases](https://github.com/laktak/chkbit-py/releases).
 
-```
-pipx install chkbit
-```
+If you OS/platform is not yet supported you can also use either [pipx](https://pipx.pypa.io/latest/installation/) or pip:
 
-You can also use pip:
-
-```
-pip install --user chkbit
-```
-
-**NOTE** version 3 now uses the blake3 hash algorithm by default as it is not only better but also faster than md5.
+- `pipx install chkbit`
+- `pip install --user chkbit`
 
 ## Usage
 
@@ -169,7 +164,7 @@ When you run it again it first checks the modification time,
 - if the time changed (because you made an edit) it records a new hash.
 - otherwise it will compare the current hash to the recorded value and report an error if they do not match.
 
-### I wish to use a stronger hash algorithm
+### I wish to use a different hash algorithm
 
 chkbit now uses blake3 by default. You can also specify `--algo sha512` or `--algo md5`.
 
@@ -187,7 +182,7 @@ and add `-delete` to delete.
 
 ### Can I test if chkbit is working correctly?
 
-On Linux/OS X you can try:
+On Linux/macOS you can try:
 
 Create test and set the modified time:
 ```
@@ -262,3 +257,4 @@ You can then install your own package with
 pipx install dist/chkbit-*.tar.gz
 ```
 
+The binaries are created using pyinstaller via Github actions.
