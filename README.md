@@ -244,7 +244,7 @@ With pipenv (install with `pipx install pipenv`):
 pipenv install
 
 # run chkbit
-pipenv run python3 -m chkbit_cli.main
+pipenv run python3 run.py
 ```
 
 To build a source distribution package from pyproject.toml
