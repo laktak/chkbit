@@ -49,12 +49,9 @@ Some cloud providers re-encode your videos or compress your images to save space
 
 ## Installation
 
-Download: You can download a release directly from [github releases](https://github.com/laktak/chkbit-py/releases).
-
-If you OS/platform is not yet supported you can also use either [pipx](https://pipx.pypa.io/latest/installation/) or pip:
-
-- `pipx install chkbit`
-- `pip install --user chkbit`
+- Download for [Linux, macOS or Windows](https://github.com/laktak/chkbit-py/releases).
+- Linux packages for [Arch, Debian, Fedora, Suse and Ubuntu via the Open Build Service](https://software.opensuse.org//download.html?project=home%3Alaktak&package=chkbit)
+- Get it with [pipx](https://pipx.pypa.io/latest/installation/): `pipx install chkbit`
 
 ## Usage
 
