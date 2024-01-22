@@ -1,51 +1,28 @@
 
 # chkbit
 
-chkbit is a lightweight tool to check the data integrity of your files. It allows you to verify *that the data has not changed* since you put it there and that it is still the same when you move it somewhere else.
+chkbit is a tool that ensures the safety of your files by checking if their *data integrity remains intact over time*, especially during transfers and backups. It helps detect issues like disk damage, filesystem errors, and malware interference.
 
-cross-platform support for [Linux, macOS and Windows](https://github.com/laktak/chkbit-py/releases)!
+![gif of chkbit](https://raw.githubusercontent.com/laktak/chkbit-py/readme/readme/chkbit-py.gif "chkbit")
 
-- [Use it](#use-it)
-  - [On your Disk](#on-your-disk)
-  - [On your Backup](#on-your-backup)
-  - [For Data in the Cloud](#for-data-in-the-cloud)
+- [How it works](#how-it-works)
 - [Installation](#installation)
 - [Usage](#usage)
 - [Repair](#repair)
 - [Ignore files](#ignore-files)
 - [FAQ](#faq)
-  - [Should I run `chkbit` on my whole drive?](#should-i-run-chkbit-on-my-whole-drive)
-  - [Why is chkbit placing the index in `.chkbit` files (vs a database)?](#why-is-chkbit-placing-the-index-in-chkbit-files-vs-a-database)
-  - [How does chkbit work?](#how-does-chkbit-work)
-  - [I wish to use a stronger hash algorithm](#i-wish-to-use-a-stronger-hash-algorithm)
-  - [How can I delete the index files?](#how-can-i-delete-the-index-files)
-  - [Can I test if chkbit is working correctly?](#can-i-test-if-chkbit-is-working-correctly)
 - [Development](#development)
 
-## Use it
 
-### On your Disk
+## How it works
 
-chkbit starts with your primary disk. It creates checksums for each folder that will follow your data onto your backups.
+- **On your Disk**: chkbit starts by creating checksums for each folder on your main disk. It alerts you to potential problems such as damage on the disk, filesystem errors, and malware attacks that could alter your files.
 
-Here it alerts you to
-- damage on the disk
-- damage caused by filesystem errors
-- damage caused by malware (when it encrypts your files)
+- **On your Backup**: Regardless of your storage media, chkbit stores indexes in hidden files alongside your data during backups. When you run chkbit on your backup, it verifies that every byte was accurately transferred. If issues like [bitrot/data degradation](https://en.wikipedia.org/wiki/Data_degradation) occur, chkbit helps identify damaged files, alerting you to replace them with other backups.
 
-The built in checksums from your filesystems only cover some of these cases.
+- **For Data in the Cloud**: chkbit is useful for cloud-stored data, alerting you to any changes introduced by cloud providers like video re-encoding or image compression. It ensures your files remain unchanged in the cloud.
 
-### On your Backup
-
-No matter what storage media or filesystem you use, chkbit stores its indexes in hidden files that are backed up together with your data.
-
-When you run chkbit on your backup media you can verify that every byte was correctly transferred.
-
-If your backup media fails or experiences [bitrot/data degradation](https://en.wikipedia.org/wiki/Data_degradation), chkbit allows you to discover what files were damaged and need to be replaced by other backups. You should always keep multiple backups :)
-
-### For Data in the Cloud
-
-Some cloud providers re-encode your videos or compress your images to save space. chkbit will alert you of any changes.
+Remember to always maintain multiple backups for comprehensive data protection.
 
 ## Installation
 
@@ -113,14 +90,12 @@ chkbit is set to use only 5 workers by default so it will not slow your system t
 
 ## Repair
 
-chkbit cannot repair damage, its job is simply to detect it.
+chkbit is designed to detect "damage". To repair your files you need to think ahead:
 
-You should
-
-- backup regularly.
-- run chkbit *before* each backup.
-- check for damage on the backup media.
-- in case of damage *restore* from a checked backup.
+- backup regularly
+- run chkbit *before* each backup
+- run chkbit *after* a backup on the backup media (readonly)
+- in case of any issues, *restore* from a checked backup medium.
 
 ## Ignore files
 
