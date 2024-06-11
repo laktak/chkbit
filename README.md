@@ -27,7 +27,6 @@ Remember to always maintain multiple backups for comprehensive data protection.
 ## Installation
 
 - Download for [Linux, macOS or Windows](https://github.com/laktak/chkbit-py/releases).
-- Linux packages for [Arch, Debian, Fedora, Suse and Ubuntu via the Open Build Service](https://software.opensuse.org//download.html?project=home%3Alaktak&package=chkbit)
 - Get it with [pipx](https://pipx.pypa.io/latest/installation/): `pipx install chkbit`
 
 [Homebrew](https://brew.sh) is delayed until we reach their `>=75` stars rule.
