@@ -1,7 +1,7 @@
-from chkbit.status import Status
-from chkbit.ignore import Ignore
-from chkbit.input_item import InputItem
-from chkbit.context import Context
-from chkbit.hashfile import hashfile, hashtext
-from chkbit.index import Index
-from chkbit.index_thread import IndexThread
+from .status import Status
+from .ignore import Ignore
+from .input_item import InputItem
+from .context import Context
+from .hashfile import hashfile, hashtext
+from .index import Index
+from .index_thread import IndexThread

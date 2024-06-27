@@ -1,5 +1,4 @@
-from chkbit_cli.cli import CLI
-from chkbit_cli.progress import Progress
-from chkbit_cli.sparklines import sparkify
-from chkbit_cli.rate_calc import RateCalc
-from chkbit_cli.main import Main, main
+from .cli import CLI
+from .progress import Progress
+from .sparklines import sparkify
+from .rate_calc import RateCalc
