@@ -5,6 +5,6 @@ name = "pypi"
 
 # keep in sync with pyproject.toml
 [packages]
-blake3 = ">=0.3.4"
+blake3 = ">=0.4.1"
 
 [dev-packages]
