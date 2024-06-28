@@ -34,20 +34,24 @@ jobs:
           SITEPKG=$(pipenv run python -c "import site; print(site.getsitepackages()[-1])")
           pipenv run pyinstaller run.py --hidden-import chkbit --hidden-import chkbit_cli --onefile --name chkbit --console --paths $SITEPKG
           cat build/chkbit/warn-chkbit.txt
+          a=$(grep -oP '(?<=version = ")[^"]+' pyproject.toml)
+          b=$(grep -oP '(?<=__version__ = ")[^"]+' chkbit_cli/__init__.py)
+          if [[ $a != $b ]]; then echo "version error $a $b"; exit 1; fi
           cd dist; ls -l
           if [ "$RUNNER_OS" == "Linux" ]; then
-              ./chkbit --version
+              c=$(./chkbit --version)
               tar -czf chkbit-linux_amd64.tar.gz chkbit
           elif [ "$RUNNER_OS" == "macOS" ]; then
-              ./chkbit --version
+              c=$(./chkbit --version)
               tar -czf chkbit-macos_amd64.tar.gz chkbit
           elif [ "$RUNNER_OS" == "Windows" ]; then
-              chkbit.exe --version
+              c=$(chkbit.exe --version)
               7z a -tzip chkbit-windows_amd64.zip chkbit.exe
           else
               echo 'unknown runner'
               exit 1
           fi
+          if [[ $a != $c ]]; then echo "version error $a $c"; exit 1; fi
 
       - name: artifact
         uses: actions/upload-artifact@v4

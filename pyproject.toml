@@ -1,6 +1,7 @@
 [project]
 name = "chkbit"
-version = "4.2.0"
+# because of packaging issues we keep this here and in chkbit_cli/__init__.py
+version = "4.2.1"
 description = "chkbit checks the data integrity of your files"
 authors = [
     {name = "Christian Zangl", email = "laktak@cdak.net"},

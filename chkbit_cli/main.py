@@ -8,9 +8,7 @@ import threading
 import time
 from datetime import datetime, timedelta
 from chkbit import Context, Status, IndexThread
-from . import CLI, Progress, RateCalc, sparkify
-
-import importlib.metadata
+from . import CLI, Progress, RateCalc, sparkify, __version__
 
 
 EPILOG = """
@@ -348,7 +346,7 @@ class Main:
         args = parser.parse_args()
 
         if args.version:
-            print(importlib.metadata.version("chkbit"))
+            print(__version__)
             return
 
         self.verbose = args.verbose or args.show_ignored_only
