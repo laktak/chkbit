@@ -10,6 +10,8 @@ from datetime import datetime, timedelta
 from chkbit import Context, Status, IndexThread
 from . import CLI, Progress, RateCalc, sparkify
 
+import importlib.metadata
+
 
 EPILOG = """
 .chkbitignore rules:
@@ -339,7 +341,15 @@ class Main:
             "-v", "--verbose", action="store_true", help="verbose output"
         )
 
+        parser.add_argument(
+            "-V", "--version", action="store_true", help="show version information"
+        )
+
         args = parser.parse_args()
+
+        if args.version:
+            print(importlib.metadata.version("chkbit"))
+            return
 
         self.verbose = args.verbose or args.show_ignored_only
         if args.log_file:
