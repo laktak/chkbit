@@ -42,13 +42,13 @@ jobs:
               c=$(./chkbit --version)
               echo $c
               if [[ $a != $c ]]; then echo "version error $a $c"; exit 1; fi
-              tar -czf chkbit-linux_amd64.tar.gz chkbit
+              tar -czf chkbit-linux_${RUNNER_ARCH}.tar.gz chkbit
           elif [ "$RUNNER_OS" == "macOS" ]; then
               ./chkbit --version
-              tar -czf chkbit-macos_amd64.tar.gz chkbit
+              tar -czf chkbit-macos_${RUNNER_ARCH}.tar.gz chkbit
           elif [ "$RUNNER_OS" == "Windows" ]; then
               ./chkbit.exe --version
-              7z a -tzip chkbit-windows_amd64.zip chkbit.exe
+              7z a -tzip chkbit-windows_${RUNNER_ARCH}.zip chkbit.exe
           else
               echo 'unknown runner'
               exit 1
