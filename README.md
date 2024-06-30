@@ -24,12 +24,19 @@ chkbit is a tool that ensures the safety of your files by checking if their *dat
 
 Remember to always maintain multiple backups for comprehensive data protection.
 
+
 ## Installation
 
+- Install via [Homebrew](https://formulae.brew.sh/formula/chkbit) for macOS and Linux:
+  ```
+  brew install chkbit
+  ```
 - Download for [Linux, macOS or Windows](https://github.com/laktak/chkbit-py/releases).
-- Get it with [pipx](https://pipx.pypa.io/latest/installation/): `pipx install chkbit`
+- Get it with [pipx](https://pipx.pypa.io/latest/installation/)
+  ```
+  pipx install chkbit
+  ```
 
-[Homebrew](https://brew.sh) is delayed until we reach their `>=75` stars rule.
 
 ## Usage
 
@@ -87,6 +94,7 @@ Status codes:
 
 chkbit is set to use only 5 workers by default so it will not slow your system to a crawl. You can specify a higher number to make it a lot faster if the IO throughput can also keep up.
 
+
 ## Repair
 
 chkbit is designed to detect "damage". To repair your files you need to think ahead:
@@ -95,6 +103,7 @@ chkbit is designed to detect "damage". To repair your files you need to think ah
 - run chkbit *before* each backup
 - run chkbit *after* a backup on the backup media (readonly)
 - in case of any issues, *restore* from a checked backup medium.
+
 
 ## Ignore files
 
@@ -110,6 +119,7 @@ Add a `.chkbitignore` file containing the names of the files/directories you wis
 - lines starting with `/` are only applied to the current directory
 - you can use `path/sub/name` to ignore a file/directory in a sub path
 - hidden files (starting with a `.`) are ignored by default
+
 
 ## FAQ
 
@@ -207,6 +217,7 @@ error: detected 1 file with damage!
 ```
 
 `DMG` indicates damage.
+
 
 ## Development
 
