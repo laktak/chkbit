@@ -32,10 +32,6 @@ Remember to always maintain multiple backups for comprehensive data protection.
   brew install chkbit
   ```
 - Download for [Linux, macOS or Windows](https://github.com/laktak/chkbit-py/releases).
-- Get it with [pipx](https://pipx.pypa.io/latest/installation/)
-  ```
-  pipx install chkbit
-  ```
 
 
 ## Usage
@@ -110,7 +106,7 @@ chkbit is designed to detect "damage". To repair your files you need to think ah
 Add a `.chkbitignore` file containing the names of the files/directories you wish to ignore
 
 - each line should contain exactly one name
-- you may use [Unix shell-style wildcards](https://docs.python.org/3/library/fnmatch.html)
+- you may use Unix shell-style wildcards
   - `*` matches everything
   - `?`  matches any single character
   - `[seq]` matches any character in seq
@@ -219,26 +215,4 @@ error: detected 1 file with damage!
 `DMG` indicates damage.
 
 
-## Development
 
-With pipenv (install with `pipx install pipenv`):
-
-```
-# setup
-pipenv install
-
-# run chkbit
-pipenv run python3 run.py
-```
-
-To build a source distribution package from pyproject.toml
-```
-pipx run build
-```
-
-You can then install your own package with
-```
-pipx install dist/chkbit-*.tar.gz
-```
-
-The binaries are created using pyinstaller via Github actions.
