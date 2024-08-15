@@ -31,7 +31,7 @@ Remember to always maintain multiple backups for comprehensive data protection.
   ```
   brew install chkbit
   ```
-- Download for [Linux, macOS or Windows](https://github.com/laktak/chkbit-py/releases).
+- Download for [Linux, macOS or Windows](https://github.com/laktak/chkbit/releases).
 
 
 ## Usage
@@ -47,45 +47,28 @@ chkbit will
 Run `chkbit PATH` to verify only.
 
 ```
-usage: chkbit [-h] [-u] [--show-ignored-only] [--algo ALGO] [-f] [-s] [-l FILE] [--log-verbose] [--index-name NAME] [--ignore-name NAME] [-w N] [--plain] [-q] [-v] [PATH ...]
+Usage: chkbit [<paths> ...] [flags]
 
-Checks the data integrity of your files. See https://github.com/laktak/chkbit-py
+Arguments:
+  [<paths> ...]    directories to check
 
-positional arguments:
-  PATH                  directories to check
-
-options:
-  -h, --help            show this help message and exit
-  -u, --update          update indices (without this chkbit will verify files in readonly mode)
-  --show-ignored-only   only show ignored files
-  --algo ALGO           hash algorithm: md5, sha512, blake3 (default: blake3)
-  -f, --force           force update of damaged items
-  -s, --skip-symlinks   do not follow symlinks
-  -l FILE, --log-file FILE
-                        write to a logfile if specified
-  --log-verbose         verbose logging
-  --index-name NAME     filename where chkbit stores its hashes, needs to start with '.' (default: .chkbit)
-  --ignore-name NAME    filename that chkbit reads its ignore list from, needs to start with '.' (default: .chkbitignore)
-  -w N, --workers N     number of workers to use (default: 5)
-  --plain               show plain status instead of being fancy
-  -q, --quiet           quiet, don't show progress/information
-  -v, --verbose         verbose output
-
-.chkbitignore rules:
-  each line should contain exactly one name
-  you may use Unix shell-style wildcards (see README)
-  lines starting with `#` are skipped
-  lines starting with `/` are only applied to the current directory
-
-Status codes:
-  DMG: error, data damage detected
-  EIX: error, index damaged
-  old: warning, file replaced by an older version
-  new: new file
-  upd: file updated
-  ok : check ok
-  ign: ignored (see .chkbitignore)
-  EXC: internal exception
+Flags:
+  -h, --help                           Show context-sensitive help.
+  -H, --tips                           Show tips.
+  -u, --update                         update indices (without this chkbit will verify files in readonly mode)
+      --show-ignored-only              only show ignored files
+      --algo="blake3"                  hash algorithm: md5, sha512, blake3 (default: blake3)
+  -f, --force                          force update of damaged items
+  -s, --skip-symlinks                  do not follow symlinks
+  -l, --log-file=STRING                write to a logfile if specified
+      --log-verbose                    verbose logging
+      --index-name=".chkbit"           filename where chkbit stores its hashes, needs to start with '.' (default: .chkbit)
+      --ignore-name=".chkbitignore"    filename that chkbit reads its ignore list from, needs to start with '.' (default: .chkbitignore)
+  -w, --workers=5                      number of workers to use (default: 5)
+      --plain                          show plain status instead of being fancy
+  -q, --quiet                          quiet, don't show progress/information
+  -v, --verbose                        verbose output
+  -V, --version                        show version information
 ```
 
 chkbit is set to use only 5 workers by default so it will not slow your system to a crawl. You can specify a higher number to make it a lot faster if the IO throughput can also keep up.

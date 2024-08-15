@@ -1,0 +1,19 @@
+#!/bin/bash
+set -e
+
+export TZ='UTC'
+script_dir=$(dirname "$(realpath "$0")")
+base_dir=$(dirname "$script_dir")
+#dir=$(realpath "$script_dir/../testdata/run_test")
+root="/tmp/chkbit/root"
+
+if [[ ! -d $root ]]; then
+    echo "must run run_test_prep first"
+    exit 1
+fi
+
+# setup
+
+$script_dir/build
+
+"$base_dir/chkbit" -u /tmp/chkbit
