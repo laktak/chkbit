@@ -17,3 +17,5 @@ fi
 $script_dir/build
 
 "$base_dir/chkbit" -u /tmp/chkbit
+# todo: validate
+

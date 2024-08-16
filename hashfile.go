@@ -1,4 +1,4 @@
-package check
+package chkbit
 
 import (
 	"crypto/md5"

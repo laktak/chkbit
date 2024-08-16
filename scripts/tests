@@ -4,4 +4,4 @@ set -e
 script_dir=$(dirname "$(realpath "$0")")
 cd $script_dir/..
 
-go test -v ./util
+go test -v ./cmd/chkbit/util

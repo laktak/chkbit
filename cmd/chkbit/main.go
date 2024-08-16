@@ -10,9 +10,9 @@ import (
 	"time"
 
 	"github.com/alecthomas/kong"
-	"github.com/laktak/chkbit/check"
-	"github.com/laktak/chkbit/term"
-	"github.com/laktak/chkbit/util"
+	"github.com/laktak/chkbit"
+	"github.com/laktak/chkbit/cmd/chkbit/util"
+	"github.com/laktak/lterm"
 )
 
 type Progress int
@@ -31,14 +31,14 @@ const (
 
 var appVersion = "vdev"
 var (
-	termBG      = term.Bg8(240)
+	termBG      = lterm.Bg8(240)
 	termSep     = "|"
-	termSepFG   = term.Fg8(235)
-	termFG1     = term.Fg8(255)
-	termFG2     = term.Fg8(228)
-	termFG3     = term.Fg8(202)
-	termOKFG    = term.Fg4(2)
-	termAlertFG = term.Fg4(1)
+	termSepFG   = lterm.Fg8(235)
+	termFG1     = lterm.Fg8(255)
+	termFG2     = lterm.Fg8(228)
+	termFG3     = lterm.Fg8(202)
+	termOKFG    = lterm.Fg4(2)
+	termAlertFG = lterm.Fg4(1)
 )
 
 var cli struct {
@@ -80,25 +80,25 @@ func (m *Main) log(text string) {
 	m.logger.Println(time.Now().UTC().Format("2006-01-02 15:04:05"), text)
 }
 
-func (m *Main) logStatus(stat check.Status, path string) {
-	if stat == check.STATUS_UPDATE_INDEX {
+func (m *Main) logStatus(stat chkbit.Status, path string) {
+	if stat == chkbit.STATUS_UPDATE_INDEX {
 		m.numIdxUpd++
 	} else {
-		if stat == check.STATUS_ERR_DMG {
+		if stat == chkbit.STATUS_ERR_DMG {
 			m.total++
 			m.dmgList = append(m.dmgList, path)
-		} else if stat == check.STATUS_PANIC {
+		} else if stat == chkbit.STATUS_PANIC {
 			m.errList = append(m.errList, path)
-		} else if stat == check.STATUS_OK || stat == check.STATUS_UPDATE || stat == check.STATUS_NEW {
+		} else if stat == chkbit.STATUS_OK || stat == chkbit.STATUS_UPDATE || stat == chkbit.STATUS_NEW {
 			m.total++
-			if stat == check.STATUS_UPDATE {
+			if stat == chkbit.STATUS_UPDATE {
 				m.numUpd++
-			} else if stat == check.STATUS_NEW {
+			} else if stat == chkbit.STATUS_NEW {
 				m.numNew++
 			}
 		}
 
-		if m.logVerbose || stat != check.STATUS_OK && stat != check.STATUS_IGNORE {
+		if m.logVerbose || stat != chkbit.STATUS_OK && stat != chkbit.STATUS_IGNORE {
 			m.log(stat.String() + " " + path)
 		}
 
@@ -107,12 +107,12 @@ func (m *Main) logStatus(stat check.Status, path string) {
 			if stat.IsErrorOrWarning() {
 				col = termAlertFG
 			}
-			term.Printline(col, stat.String(), " ", path, term.Reset)
+			lterm.Printline(col, stat.String(), " ", path, lterm.Reset)
 		}
 	}
 }
 
-func (m *Main) showStatus(context *check.Context) {
+func (m *Main) showStatus(context *chkbit.Context) {
 	last := time.Now().Add(-updateInterval)
 	stat := ""
 	for {
@@ -120,13 +120,13 @@ func (m *Main) showStatus(context *check.Context) {
 		case item := <-context.LogQueue:
 			if item == nil {
 				if m.progress == Fancy {
-					term.Printline("")
+					lterm.Printline("")
 				}
 				return
 			}
 			m.logStatus(item.Stat, item.Message)
 			if m.progress == Fancy {
-				term.Write(termBG, termFG1, stat, term.ClearLine(0), term.Reset, "\r")
+				lterm.Write(termBG, termFG1, stat, lterm.ClearLine(0), lterm.Reset, "\r")
 			} else {
 				fmt.Print(m.total, "\r")
 			}
@@ -150,7 +150,7 @@ func (m *Main) showStatus(context *check.Context) {
 					stat = util.LeftTruncate(stat, m.termWidth-1)
 					stat = strings.Replace(stat, "$", termSepFG+termSep+termFG2, 1)
 					stat = strings.Replace(stat, "$", termSepFG+termSep+termFG3, 1)
-					term.Write(termBG, termFG1, stat, term.ClearLine(0), term.Reset, "\r")
+					lterm.Write(termBG, termFG1, stat, lterm.ClearLine(0), lterm.Reset, "\r")
 				} else if m.progress == Plain {
 					fmt.Print(m.total, "\r")
 				}
@@ -159,13 +159,13 @@ func (m *Main) showStatus(context *check.Context) {
 	}
 }
 
-func (m *Main) process() *check.Context {
+func (m *Main) process() *chkbit.Context {
 	if cli.Update && cli.ShowIgnoredOnly {
 		fmt.Println("Error: use either --update or --show-ignored-only!")
 		return nil
 	}
 
-	context, err := check.NewContext(cli.Workers, cli.Force, cli.Update, cli.ShowIgnoredOnly, cli.Algo, cli.SkipSymlinks, cli.IndexName, cli.IgnoreName)
+	context, err := chkbit.NewContext(cli.Workers, cli.Force, cli.Update, cli.ShowIgnoredOnly, cli.Algo, cli.SkipSymlinks, cli.IndexName, cli.IgnoreName)
 	if err != nil {
 		fmt.Println(err)
 		return nil
@@ -183,11 +183,11 @@ func (m *Main) process() *check.Context {
 	return context
 }
 
-func (m *Main) printResult(context *check.Context) {
+func (m *Main) printResult(context *chkbit.Context) {
 	cprint := func(col, text string) {
 		if m.progress != Quiet {
 			if m.progress == Fancy {
-				term.Printline(col, text, term.Reset)
+				lterm.Printline(col, text, lterm.Reset)
 			} else {
 				fmt.Println(text)
 			}
@@ -196,9 +196,9 @@ func (m *Main) printResult(context *check.Context) {
 
 	eprint := func(col, text string) {
 		if m.progress == Fancy {
-			term.Write(col)
+			lterm.Write(col)
 			fmt.Fprintln(os.Stderr, text)
-			term.Write(term.Reset)
+			lterm.Write(lterm.Reset)
 		} else {
 			fmt.Fprintln(os.Stderr, text)
 		}
@@ -324,7 +324,7 @@ func main() {
 		}
 	}()
 
-	termWidth := term.GetWidth()
+	termWidth := lterm.GetWidth()
 	m := &Main{
 		logger:    log.New(io.Discard, "", 0),
 		termWidth: termWidth,

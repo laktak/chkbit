@@ -1,4 +1,4 @@
-package check
+package chkbit
 
 type WorkItem struct {
 	path         string
