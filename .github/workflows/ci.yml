@@ -1,0 +1,31 @@
+name: ci
+
+on:
+  push:
+    branches: []
+  pull_request:
+
+jobs:
+
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-go@v5
+      with:
+        go-version: "1.22"
+
+    - name: chkfmt
+      run: scripts/chkfmt
+
+    - name: prep-test
+      run: scripts/run_test_prep
+
+    - name: tests
+      run: |
+        scripts/tests
+        scripts/run_tests
+
+    - name: xbuild
+      run: scripts/xbuild
+
