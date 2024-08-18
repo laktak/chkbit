@@ -16,6 +16,6 @@ fi
 
 $script_dir/build
 
-"$base_dir/chkbit" -u /tmp/chkbit
-# todo: validate
+"$base_dir/chkbit" -u /tmp/chkbit/root
+# todo: validate (300 files, 1 symlink dir followed, 1 symlink file ignored)
 

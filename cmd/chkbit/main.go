@@ -25,7 +25,7 @@ const (
 )
 
 const (
-	updateInterval       = time.Millisecond * 300
+	updateInterval       = time.Millisecond * 700
 	sizeMB         int64 = 1024 * 1024
 )
 
@@ -80,7 +80,7 @@ func (m *Main) log(text string) {
 	m.logger.Println(time.Now().UTC().Format("2006-01-02 15:04:05"), text)
 }
 
-func (m *Main) logStatus(stat chkbit.Status, path string) {
+func (m *Main) logStatus(stat chkbit.Status, path string) bool {
 	if stat == chkbit.STATUS_UPDATE_INDEX {
 		m.numIdxUpd++
 	} else {
@@ -108,8 +108,10 @@ func (m *Main) logStatus(stat chkbit.Status, path string) {
 				col = termAlertFG
 			}
 			lterm.Printline(col, stat.String(), " ", path, lterm.Reset)
+			return true
 		}
 	}
+	return false
 }
 
 func (m *Main) showStatus(context *chkbit.Context) {
@@ -124,11 +126,12 @@ func (m *Main) showStatus(context *chkbit.Context) {
 				}
 				return
 			}
-			m.logStatus(item.Stat, item.Message)
-			if m.progress == Fancy {
-				lterm.Write(termBG, termFG1, stat, lterm.ClearLine(0), lterm.Reset, "\r")
-			} else {
-				fmt.Print(m.total, "\r")
+			if m.logStatus(item.Stat, item.Message) {
+				if m.progress == Fancy {
+					lterm.Write(termBG, termFG1, stat, lterm.ClearLine(0), lterm.Reset, "\r")
+				} else {
+					fmt.Print(m.total, "\r")
+				}
 			}
 		case perf := <-context.PerfQueue:
 			now := time.Now()

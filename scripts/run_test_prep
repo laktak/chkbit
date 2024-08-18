@@ -10,4 +10,4 @@ mv $root/root/people $root/people
 ln -s ../people people
 ln -s ../../people/face/office-door.pdf day/friend/office-door.pdf
 
-find -L | wc -l
+find -L -type f | wc -l
