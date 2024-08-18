@@ -80,18 +80,18 @@ func (m *Main) log(text string) {
 	m.logger.Println(time.Now().UTC().Format("2006-01-02 15:04:05"), text)
 }
 
-func (m *Main) logStatus(stat chkbit.Status, path string) bool {
+func (m *Main) logStatus(stat chkbit.Status, message string) bool {
 	if stat == chkbit.STATUS_UPDATE_INDEX {
 		m.numIdxUpd++
 	} else {
 		if stat == chkbit.STATUS_ERR_DMG {
 			m.total++
-			m.dmgList = append(m.dmgList, path)
+			m.dmgList = append(m.dmgList, message)
 		} else if stat == chkbit.STATUS_PANIC {
-			m.errList = append(m.errList, path)
-		} else if stat == chkbit.STATUS_OK || stat == chkbit.STATUS_UPDATE || stat == chkbit.STATUS_NEW {
+			m.errList = append(m.errList, message)
+		} else if stat == chkbit.STATUS_OK || stat == chkbit.STATUS_UPDATE || stat == chkbit.STATUS_NEW || stat == chkbit.STATUS_UP_WARN_OLD {
 			m.total++
-			if stat == chkbit.STATUS_UPDATE {
+			if stat == chkbit.STATUS_UPDATE || stat == chkbit.STATUS_UP_WARN_OLD {
 				m.numUpd++
 			} else if stat == chkbit.STATUS_NEW {
 				m.numNew++
@@ -99,7 +99,7 @@ func (m *Main) logStatus(stat chkbit.Status, path string) bool {
 		}
 
 		if m.logVerbose || stat != chkbit.STATUS_OK && stat != chkbit.STATUS_IGNORE {
-			m.log(stat.String() + " " + path)
+			m.log(stat.String() + " " + message)
 		}
 
 		if m.verbose || !stat.IsVerbose() {
@@ -107,7 +107,7 @@ func (m *Main) logStatus(stat chkbit.Status, path string) bool {
 			if stat.IsErrorOrWarning() {
 				col = termAlertFG
 			}
-			lterm.Printline(col, stat.String(), " ", path, lterm.Reset)
+			lterm.Printline(col, stat.String(), " ", message, lterm.Reset)
 			return true
 		}
 	}

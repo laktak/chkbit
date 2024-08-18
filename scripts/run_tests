@@ -4,10 +4,10 @@ set -e
 export TZ='UTC'
 script_dir=$(dirname "$(realpath "$0")")
 base_dir=$(dirname "$script_dir")
-#dir=$(realpath "$script_dir/../testdata/run_test")
-root="/tmp/chkbit/root"
+test_dir="/tmp/chkbit"
+function chkbit() { "$base_dir/chkbit" "$@"; }
 
-if [[ ! -d $root ]]; then
+if [[ ! -d $test_dir ]]; then
     echo "must run run_test_prep first"
     exit 1
 fi
@@ -15,7 +15,32 @@ fi
 # setup
 
 $script_dir/build
+cd $test_dir
 
-"$base_dir/chkbit" -u /tmp/chkbit/root
+chkbit -u root
 # todo: validate (300 files, 1 symlink dir followed, 1 symlink file ignored)
+
+
+echo "- test damage"
+
+rm -rf $test_dir/test_dmg
+mkdir $test_dir/test_dmg
+cd $test_dir/test_dmg
+
+echo "-- create test and set the modified time"
+echo foo1 > test; touch -t 201501010001 test
+# says new:
+chkbit -u .
+
+echo "-- update test & old modified (expect 'old')"
+echo foo2 > test; touch -t 201501010000 test
+chkbit -u .
+
+echo "-- update test & new modified (expect 'upd')"
+echo foo3 > test; touch -t 201501010002 test
+chkbit -u .
+
+echo "-- Now update test with the same modified to simulate damage (expect DMG)"
+echo foo4 > test; touch -t 201501010002 test
+chkbit -u .
 

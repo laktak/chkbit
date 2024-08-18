@@ -1,13 +1,14 @@
 #!/bin/bash
 
 export TZ='UTC'
-root="/tmp/chkbit"
+test_dir="/tmp/chkbit"
 
 go run scripts/run_test_prep.go
 
-cd $root/root
-mv $root/root/people $root/people
+cd $test_dir/root
+mv $test_dir/root/people $test_dir/people
 ln -s ../people people
 ln -s ../../people/face/office-door.pdf day/friend/office-door.pdf
+
 
 find -L -type f | wc -l

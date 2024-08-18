@@ -125,7 +125,6 @@ func (i *Index) checkFix(force bool) {
 		if a, ok := i.cur[name]; !ok {
 			i.logFile(STATUS_NEW, name)
 			i.setMod(true)
-			continue
 		} else {
 			amod := int64(a.ModTime)
 			bmod := int64(b.ModTime)
@@ -148,7 +147,7 @@ func (i *Index) checkFix(force bool) {
 				i.logFile(STATUS_UPDATE, name)
 				i.setMod(true)
 			} else if amod > bmod {
-				i.logFile(STATUS_WARN_OLD, name)
+				i.logFile(STATUS_UP_WARN_OLD, name)
 				i.setMod(true)
 			}
 		}

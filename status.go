@@ -4,14 +4,14 @@ type Status string
 
 const (
 	STATUS_PANIC        Status = "EXC"
-	STATUS_ERR_DMG      Status = "DMG"
 	STATUS_ERR_IDX      Status = "EIX"
-	STATUS_WARN_OLD     Status = "old"
-	STATUS_NEW          Status = "new"
+	STATUS_ERR_DMG      Status = "DMG"
+	STATUS_UPDATE_INDEX Status = "iup"
+	STATUS_UP_WARN_OLD  Status = "old"
 	STATUS_UPDATE       Status = "upd"
+	STATUS_NEW          Status = "new"
 	STATUS_OK           Status = "ok "
 	STATUS_IGNORE       Status = "ign"
-	STATUS_UPDATE_INDEX Status = "iup"
 )
 
 func (s Status) String() string {
@@ -19,7 +19,7 @@ func (s Status) String() string {
 }
 
 func (s Status) IsErrorOrWarning() bool {
-	return s == STATUS_PANIC || s == STATUS_ERR_DMG || s == STATUS_ERR_IDX || s == STATUS_WARN_OLD
+	return s == STATUS_PANIC || s == STATUS_ERR_DMG || s == STATUS_ERR_IDX || s == STATUS_UP_WARN_OLD
 }
 
 func (s Status) IsVerbose() bool {
