@@ -3,15 +3,16 @@
 
 chkbit is a tool that ensures the safety of your files by checking if their *data integrity remains intact over time*, especially during transfers and backups. It helps detect issues like disk damage, filesystem errors, and malware interference.
 
-![gif of chkbit](https://raw.githubusercontent.com/laktak/chkbit-py/readme/readme/chkbit-py.gif "chkbit")
+![gif of chkbit](https://raw.githubusercontent.com/wiki/laktak/chkbit/readme/chkbit.gif "chkbit")
+
 
 - [How it works](#how-it-works)
 - [Installation](#installation)
+- [chkbit as a Go module](#chkbit-as-a-go-module)
 - [Usage](#usage)
 - [Repair](#repair)
 - [Ignore files](#ignore-files)
 - [FAQ](#faq)
-- [Development](#development)
 
 
 ## How it works
@@ -27,11 +28,50 @@ Remember to always maintain multiple backups for comprehensive data protection.
 
 ## Installation
 
-- Install via [Homebrew](https://formulae.brew.sh/formula/chkbit) for macOS and Linux:
-  ```
-  brew install chkbit
-  ```
-- Download for [Linux, macOS or Windows](https://github.com/laktak/chkbit/releases).
+
+### Binary releases
+
+You can download the official chkbit binaries from the releases page and place it in your `PATH`.
+
+- https://github.com/laktak/chkbit/releases
+
+### Homebrew (macOS and Linux)
+
+For macOS and Linux it can also be installed via [Homebrew](https://formulae.brew.sh/formula/chkbit):
+
+```shell
+brew install chkbit
+```
+
+### Build from Source
+
+Building from the source requires Go.
+
+- Either install it directly
+
+```shell
+go install github.com/laktak/chkbit@latest
+```
+
+- or clone and build
+
+```shell
+git clone https://github.com/laktak/chkbit
+chkbit/scripts/build
+# output is here:
+chkbit/chkbit
+```
+
+
+## chkbit as a Go module
+
+chkbit is can also be used in other Go programs.
+
+```
+go get github.com/laktak/chkbit
+```
+
+For more information see the linked documentation on [pkg.go.dev](https://pkg.go.dev/github.com/laktak/chkbit).
 
 
 ## Usage
