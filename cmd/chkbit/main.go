@@ -72,8 +72,8 @@ type Main struct {
 	progress   Progress
 	total      int
 	termWidth  int
-	fps        *RateCalc
-	bps        *RateCalc
+	fps        *util.RateCalc
+	bps        *util.RateCalc
 }
 
 func (m *Main) log(text string) {
@@ -331,8 +331,8 @@ func main() {
 	m := &Main{
 		logger:    log.New(io.Discard, "", 0),
 		termWidth: termWidth,
-		fps:       NewRateCalc(time.Second, (termWidth-70)/2),
-		bps:       NewRateCalc(time.Second, (termWidth-70)/2),
+		fps:       util.NewRateCalc(time.Second, (termWidth-70)/2),
+		bps:       util.NewRateCalc(time.Second, (termWidth-70)/2),
 	}
 	m.run()
 }

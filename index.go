@@ -225,7 +225,7 @@ func (i *Index) load() error {
 		}
 		text := data.IdxRaw
 		if data.IdxHash != HashMd5(text) {
-			// old versions may have save the JSON encoded with extra spaces
+			// old versions may have saved the JSON encoded with extra spaces
 			text, _ = json.Marshal(data.IdxRaw)
 		} else {
 		}
