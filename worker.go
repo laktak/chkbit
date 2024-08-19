@@ -13,7 +13,7 @@ func (context *Context) RunWorker(id int) {
 			break
 		}
 
-		index := NewIndex(context, item.path, item.filesToIndex, !context.Update)
+		index := NewIndex(context, item.path, item.filesToIndex, !context.UpdateIndex)
 		err := index.load()
 		if err != nil {
 			context.log(STATUS_PANIC, index.getIndexFilepath()+": "+err.Error())
@@ -23,9 +23,9 @@ func (context *Context) RunWorker(id int) {
 			index.showIgnoredOnly(item.ignore)
 		} else {
 			index.calcHashes(item.ignore)
-			index.checkFix(context.Force)
+			index.checkFix(context.ForceUpdateDmg)
 
-			if context.Update {
+			if context.UpdateIndex {
 				if changed, err := index.save(); err != nil {
 					context.logErr(item.path, err)
 				} else if changed {

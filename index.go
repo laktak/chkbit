@@ -20,7 +20,8 @@ type IdxInfo struct {
 }
 
 type IndexFile struct {
-	V       int             `json:"v"`
+	V int `json:"v"`
+	// IdxRaw -> map[string]IdxInfo
 	IdxRaw  json.RawMessage `json:"idx"`
 	IdxHash string          `json:"idx_hash"`
 }
@@ -40,7 +41,6 @@ type Index struct {
 	files    []string
 	cur      map[string]IdxInfo
 	new      map[string]IdxInfo
-	updates  []string
 	modified bool
 	readonly bool
 }
@@ -120,7 +120,7 @@ func (i *Index) showIgnoredOnly(ignore *Ignore) {
 	}
 }
 
-func (i *Index) checkFix(force bool) {
+func (i *Index) checkFix(forceUpdateDmg bool) {
 	for name, b := range i.new {
 		if a, ok := i.cur[name]; !ok {
 			i.logFile(STATUS_NEW, name)
@@ -138,7 +138,8 @@ func (i *Index) checkFix(force bool) {
 
 			if amod == bmod {
 				i.logFile(STATUS_ERR_DMG, name)
-				if !force {
+				if !forceUpdateDmg {
+					// keep DMG entry
 					i.new[name] = a
 				} else {
 					i.setMod(true)

@@ -143,7 +143,7 @@ func (m *Main) showStatus(context *chkbit.Context) {
 					statF := fmt.Sprintf("%d files/s", m.fps.Last())
 					statB := fmt.Sprintf("%d MB/s", m.bps.Last()/sizeMB)
 					stat = "RW"
-					if !context.Update {
+					if !context.UpdateIndex {
 						stat = "RO"
 					}
 					stat = fmt.Sprintf("[%s:%d] %5d files $ %s %-13s $ %s %-13s",
@@ -168,11 +168,15 @@ func (m *Main) process() *chkbit.Context {
 		return nil
 	}
 
-	context, err := chkbit.NewContext(cli.Workers, cli.Force, cli.Update, cli.ShowIgnoredOnly, cli.Algo, cli.SkipSymlinks, cli.IndexName, cli.IgnoreName)
+	context, err := chkbit.NewContext(cli.Workers, cli.Algo, cli.IndexName, cli.IgnoreName)
 	if err != nil {
 		fmt.Println(err)
 		return nil
 	}
+	context.ForceUpdateDmg = cli.Force
+	context.UpdateIndex = cli.Update
+	context.ShowIgnoredOnly = cli.ShowIgnoredOnly
+	context.SkipSymlinks = cli.SkipSymlinks
 
 	var wg sync.WaitGroup
 	wg.Add(1)
@@ -209,7 +213,7 @@ func (m *Main) printResult(context *chkbit.Context) {
 
 	if m.progress != Quiet {
 		mode := ""
-		if !context.Update {
+		if !context.UpdateIndex {
 			mode = " in readonly mode"
 		}
 		status := fmt.Sprintf("Processed %s%s.", util.LangNum1MutateSuffix(m.total, "file"), mode)
@@ -224,7 +228,7 @@ func (m *Main) printResult(context *chkbit.Context) {
 			fmt.Printf("- %.2f MB/second\n", (float64(m.bps.Total)+float64(m.bps.Current))/float64(sizeMB)/elapsedS)
 		}
 
-		if context.Update {
+		if context.UpdateIndex {
 			if m.numIdxUpd > 0 {
 				cprint(termOKFG, fmt.Sprintf("- %s updated\n- %s added\n- %s updated",
 					util.LangNum1Choice(m.numIdxUpd, "directory was", "directories were"),

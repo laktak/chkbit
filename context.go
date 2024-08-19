@@ -9,8 +9,8 @@ import (
 
 type Context struct {
 	NumWorkers      int
-	Force           bool
-	Update          bool
+	ForceUpdateDmg  bool
+	UpdateIndex     bool
 	ShowIgnoredOnly bool
 	HashAlgo        string
 	SkipSymlinks    bool
@@ -22,7 +22,7 @@ type Context struct {
 	wg              sync.WaitGroup
 }
 
-func NewContext(numWorkers int, force bool, update bool, showIgnoredOnly bool, hashAlgo string, skipSymlinks bool, indexFilename string, ignoreFilename string) (*Context, error) {
+func NewContext(numWorkers int, hashAlgo string, indexFilename string, ignoreFilename string) (*Context, error) {
 	if indexFilename[0] != '.' {
 		return nil, errors.New("The index filename must start with a dot!")
 	}
@@ -33,17 +33,13 @@ func NewContext(numWorkers int, force bool, update bool, showIgnoredOnly bool, h
 		return nil, errors.New(hashAlgo + " is unknown.")
 	}
 	return &Context{
-		NumWorkers:      numWorkers,
-		Force:           force,
-		Update:          update,
-		ShowIgnoredOnly: showIgnoredOnly,
-		HashAlgo:        hashAlgo,
-		SkipSymlinks:    skipSymlinks,
-		IndexFilename:   indexFilename,
-		IgnoreFilename:  ignoreFilename,
-		WorkQueue:       make(chan *WorkItem, numWorkers*10),
-		LogQueue:        make(chan *LogEvent, numWorkers*100),
-		PerfQueue:       make(chan *PerfEvent, numWorkers*10),
+		NumWorkers:     numWorkers,
+		HashAlgo:       hashAlgo,
+		IndexFilename:  indexFilename,
+		IgnoreFilename: ignoreFilename,
+		WorkQueue:      make(chan *WorkItem, numWorkers*10),
+		LogQueue:       make(chan *LogEvent, numWorkers*100),
+		PerfQueue:      make(chan *PerfEvent, numWorkers*10),
 	}, nil
 }
 
@@ -121,6 +117,11 @@ func (context *Context) scanDir(root string, parentIgnore *Ignore) {
 	var dirList []string
 	var filesToIndex []string
 
+	ignore, err := GetIgnore(context, root, parentIgnore)
+	if err != nil {
+		context.logErr(root+"/", err)
+	}
+
 	for _, file := range files {
 		path := filepath.Join(root, file.Name())
 		if file.Name()[0] == '.' {
@@ -130,24 +131,19 @@ func (context *Context) scanDir(root string, parentIgnore *Ignore) {
 			continue
 		}
 		if isDir(file, path) {
-			dirList = append(dirList, file.Name())
+			if !ignore.shouldIgnore(file.Name()) {
+				dirList = append(dirList, file.Name())
+			} else {
+				context.log(STATUS_IGNORE, file.Name()+"/")
+			}
 		} else if file.Type().IsRegular() {
 			filesToIndex = append(filesToIndex, file.Name())
 		}
 	}
 
-	ignore, err := GetIgnore(context, root, parentIgnore)
-	if err != nil {
-		context.logErr(root+"/", err)
-	}
-
 	context.addWork(root, filesToIndex, ignore)
 
 	for _, name := range dirList {
-		if !ignore.shouldIgnore(name) {
-			context.scanDir(filepath.Join(root, name), ignore)
-		} else {
-			context.log(STATUS_IGNORE, name+"/")
-		}
+		context.scanDir(filepath.Join(root, name), ignore)
 	}
 }
