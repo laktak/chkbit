@@ -12,35 +12,35 @@ var (
 	algoMd5 = "md5"
 )
 
-type IdxInfo struct {
+type idxInfo struct {
 	ModTime    int64   `json:"mod"`
 	Algo       *string `json:"a,omitempty"`
 	Hash       *string `json:"h,omitempty"`
 	LegacyHash *string `json:"md5,omitempty"`
 }
 
-type IndexFile struct {
+type indexFile struct {
 	V int `json:"v"`
-	// IdxRaw -> map[string]IdxInfo
+	// IdxRaw -> map[string]idxInfo
 	IdxRaw  json.RawMessage `json:"idx"`
 	IdxHash string          `json:"idx_hash"`
 }
 
-type IdxInfo1 struct {
+type idxInfo1 struct {
 	ModTime int64  `json:"mod"`
 	Hash    string `json:"md5"`
 }
 
-type IndexFile1 struct {
-	Data map[string]IdxInfo1 `json:"data"`
+type indexFile1 struct {
+	Data map[string]idxInfo1 `json:"data"`
 }
 
 type Index struct {
 	context  *Context
 	path     string
 	files    []string
-	cur      map[string]IdxInfo
-	new      map[string]IdxInfo
+	cur      map[string]idxInfo
+	new      map[string]idxInfo
 	modified bool
 	readonly bool
 }
@@ -50,8 +50,8 @@ func NewIndex(context *Context, path string, files []string, readonly bool) *Ind
 		context:  context,
 		path:     path,
 		files:    files,
-		cur:      make(map[string]IdxInfo),
-		new:      make(map[string]IdxInfo),
+		cur:      make(map[string]idxInfo),
+		new:      make(map[string]idxInfo),
 		readonly: readonly,
 	}
 }
@@ -80,13 +80,13 @@ func (i *Index) calcHashes(ignore *Ignore) {
 		}
 
 		var err error
-		var info *IdxInfo
+		var info *idxInfo
 		algo := i.context.HashAlgo
 		if val, ok := i.cur[name]; ok {
 			// existing
 			if val.LegacyHash != nil {
 				// convert from py1 to new format
-				val = IdxInfo{
+				val = idxInfo{
 					ModTime: val.ModTime,
 					Algo:    &algoMd5,
 					Hash:    val.LegacyHash,
@@ -99,7 +99,7 @@ func (i *Index) calcHashes(ignore *Ignore) {
 			info, err = i.calcFile(name, algo)
 		} else {
 			if i.readonly {
-				info = &IdxInfo{Algo: &algo}
+				info = &idxInfo{Algo: &algo}
 			} else {
 				info, err = i.calcFile(name, algo)
 			}
@@ -155,7 +155,7 @@ func (i *Index) checkFix(forceUpdateDmg bool) {
 	}
 }
 
-func (i *Index) calcFile(name string, a string) (*IdxInfo, error) {
+func (i *Index) calcFile(name string, a string) (*idxInfo, error) {
 	path := filepath.Join(i.path, name)
 	info, _ := os.Stat(path)
 	mtime := int64(info.ModTime().UnixNano() / 1e6)
@@ -164,7 +164,7 @@ func (i *Index) calcFile(name string, a string) (*IdxInfo, error) {
 		return nil, err
 	}
 	i.context.perfMonFiles(1)
-	return &IdxInfo{
+	return &idxInfo{
 		ModTime: mtime,
 		Algo:    &a,
 		Hash:    &h,
@@ -181,10 +181,10 @@ func (i *Index) save() (bool, error) {
 		if err != nil {
 			return false, err
 		}
-		data := IndexFile{
+		data := indexFile{
 			V:       VERSION,
 			IdxRaw:  text,
-			IdxHash: HashMd5(text),
+			IdxHash: hashMd5(text),
 		}
 
 		file, err := json.Marshal(data)
@@ -214,7 +214,7 @@ func (i *Index) load() error {
 	if err != nil {
 		return err
 	}
-	var data IndexFile
+	var data indexFile
 	err = json.Unmarshal(file, &data)
 	if err != nil {
 		return err
@@ -225,22 +225,22 @@ func (i *Index) load() error {
 			return err
 		}
 		text := data.IdxRaw
-		if data.IdxHash != HashMd5(text) {
+		if data.IdxHash != hashMd5(text) {
 			// old versions may have saved the JSON encoded with extra spaces
 			text, _ = json.Marshal(data.IdxRaw)
 		} else {
 		}
-		if data.IdxHash != HashMd5(text) {
+		if data.IdxHash != hashMd5(text) {
 			i.setMod(true)
 			i.logFile(STATUS_ERR_IDX, i.getIndexFilepath())
 		}
 	} else {
-		var data1 IndexFile1
+		var data1 indexFile1
 		json.Unmarshal(file, &data1)
 		if data1.Data != nil {
 			// convert from js to new format
 			for name, item := range data1.Data {
-				i.cur[name] = IdxInfo{
+				i.cur[name] = idxInfo{
 					ModTime: item.ModTime,
 					Algo:    &algoMd5,
 					Hash:    &item.Hash,

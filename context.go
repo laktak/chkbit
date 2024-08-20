@@ -77,7 +77,7 @@ func (context *Context) Start(pathList []string) {
 	for i := 0; i < context.NumWorkers; i++ {
 		go func(id int) {
 			defer wg.Done()
-			context.RunWorker(id)
+			context.runWorker(id)
 		}(i)
 	}
 	go func() {

@@ -6,7 +6,7 @@ type WorkItem struct {
 	ignore       *Ignore
 }
 
-func (context *Context) RunWorker(id int) {
+func (context *Context) runWorker(id int) {
 	for {
 		item := <-context.WorkQueue
 		if item == nil {

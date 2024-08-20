@@ -50,7 +50,7 @@ func Hashfile(path string, hashAlgo string, perfMonBytes func(int64)) (string, e
 	return hex.EncodeToString(h.Sum(nil)), nil
 }
 
-func HashMd5(data []byte) string {
+func hashMd5(data []byte) string {
 	h := md5.New()
 	h.Write(data)
 	return hex.EncodeToString(h.Sum(nil))
