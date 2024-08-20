@@ -12,6 +12,7 @@ const (
 	STATUS_NEW          Status = "new"
 	STATUS_OK           Status = "ok "
 	STATUS_IGNORE       Status = "ign"
+	STATUS_MISSING      Status = "del"
 )
 
 func (s Status) String() string {

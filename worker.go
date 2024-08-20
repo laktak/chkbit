@@ -3,6 +3,7 @@ package chkbit
 type WorkItem struct {
 	path         string
 	filesToIndex []string
+	dirList      []string
 	ignore       *Ignore
 }
 
@@ -13,7 +14,7 @@ func (context *Context) runWorker(id int) {
 			break
 		}
 
-		index := NewIndex(context, item.path, item.filesToIndex, !context.UpdateIndex)
+		index := newIndex(context, item.path, item.filesToIndex, item.dirList, !context.UpdateIndex)
 		err := index.load()
 		if err != nil {
 			context.log(STATUS_PANIC, index.getIndexFilepath()+": "+err.Error())

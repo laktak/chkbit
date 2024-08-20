@@ -46,9 +46,11 @@ var cli struct {
 	Tips            bool     `short:"H" help:"Show tips."`
 	Update          bool     `short:"u" help:"update indices (without this chkbit will verify files in readonly mode)"`
 	ShowIgnoredOnly bool     `help:"only show ignored files"`
+	ShowMissing     bool     `short:"m" help:"show missing files/directories"`
 	Algo            string   `default:"blake3" help:"hash algorithm: md5, sha512, blake3 (default: blake3)"`
 	Force           bool     `short:"f" help:"force update of damaged items"`
 	SkipSymlinks    bool     `short:"s" help:"do not follow symlinks"`
+	NoDirInIndex    bool     `short:"D" help:"do not track directories in the index"`
 	LogFile         string   `short:"l" help:"write to a logfile if specified"`
 	LogVerbose      bool     `help:"verbose logging"`
 	IndexName       string   `default:".chkbit" help:"filename where chkbit stores its hashes, needs to start with '.' (default: .chkbit)"`
@@ -63,14 +65,10 @@ var cli struct {
 type Main struct {
 	dmgList    []string
 	errList    []string
-	numIdxUpd  int
-	numNew     int
-	numUpd     int
 	verbose    bool
 	logger     *log.Logger
 	logVerbose bool
 	progress   Progress
-	total      int
 	termWidth  int
 	fps        *util.RateCalc
 	bps        *util.RateCalc
@@ -82,34 +80,26 @@ func (m *Main) log(text string) {
 
 func (m *Main) logStatus(stat chkbit.Status, message string) bool {
 	if stat == chkbit.STATUS_UPDATE_INDEX {
-		m.numIdxUpd++
-	} else {
-		if stat == chkbit.STATUS_ERR_DMG {
-			m.total++
-			m.dmgList = append(m.dmgList, message)
-		} else if stat == chkbit.STATUS_PANIC {
-			m.errList = append(m.errList, message)
-		} else if stat == chkbit.STATUS_OK || stat == chkbit.STATUS_UPDATE || stat == chkbit.STATUS_NEW || stat == chkbit.STATUS_UP_WARN_OLD {
-			m.total++
-			if stat == chkbit.STATUS_UPDATE || stat == chkbit.STATUS_UP_WARN_OLD {
-				m.numUpd++
-			} else if stat == chkbit.STATUS_NEW {
-				m.numNew++
-			}
-		}
+		return false
+	}
 
-		if m.logVerbose || stat != chkbit.STATUS_OK && stat != chkbit.STATUS_IGNORE {
-			m.log(stat.String() + " " + message)
-		}
+	if stat == chkbit.STATUS_ERR_DMG {
+		m.dmgList = append(m.dmgList, message)
+	} else if stat == chkbit.STATUS_PANIC {
+		m.errList = append(m.errList, message)
+	}
 
-		if m.verbose || !stat.IsVerbose() {
-			col := ""
-			if stat.IsErrorOrWarning() {
-				col = termAlertFG
-			}
-			lterm.Printline(col, stat.String(), " ", message, lterm.Reset)
-			return true
+	if m.logVerbose || !stat.IsVerbose() {
+		m.log(stat.String() + " " + message)
+	}
+
+	if m.verbose || !stat.IsVerbose() {
+		col := ""
+		if stat.IsErrorOrWarning() {
+			col = termAlertFG
 		}
+		lterm.Printline(col, stat.String(), " ", message, lterm.Reset)
+		return true
 	}
 	return false
 }
@@ -130,7 +120,7 @@ func (m *Main) showStatus(context *chkbit.Context) {
 				if m.progress == Fancy {
 					lterm.Write(termBG, termFG1, stat, lterm.ClearLine(0), lterm.Reset, "\r")
 				} else {
-					fmt.Print(m.total, "\r")
+					fmt.Print(context.NumTotal, "\r")
 				}
 			}
 		case perf := <-context.PerfQueue:
@@ -147,7 +137,7 @@ func (m *Main) showStatus(context *chkbit.Context) {
 						stat = "RO"
 					}
 					stat = fmt.Sprintf("[%s:%d] %5d files $ %s %-13s $ %s %-13s",
-						stat, context.NumWorkers, m.total,
+						stat, context.NumWorkers, context.NumTotal,
 						util.Sparkline(m.fps.Stats), statF,
 						util.Sparkline(m.bps.Stats), statB)
 					stat = util.LeftTruncate(stat, m.termWidth-1)
@@ -155,7 +145,7 @@ func (m *Main) showStatus(context *chkbit.Context) {
 					stat = strings.Replace(stat, "$", termSepFG+termSep+termFG3, 1)
 					lterm.Write(termBG, termFG1, stat, lterm.ClearLine(0), lterm.Reset, "\r")
 				} else if m.progress == Plain {
-					fmt.Print(m.total, "\r")
+					fmt.Print(context.NumTotal, "\r")
 				}
 			}
 		}
@@ -176,7 +166,9 @@ func (m *Main) process() *chkbit.Context {
 	context.ForceUpdateDmg = cli.Force
 	context.UpdateIndex = cli.Update
 	context.ShowIgnoredOnly = cli.ShowIgnoredOnly
+	context.ShowMissing = cli.ShowMissing
 	context.SkipSymlinks = cli.SkipSymlinks
+	context.TrackDirectories = !cli.NoDirInIndex
 
 	var wg sync.WaitGroup
 	wg.Add(1)
@@ -216,11 +208,11 @@ func (m *Main) printResult(context *chkbit.Context) {
 		if !context.UpdateIndex {
 			mode = " in readonly mode"
 		}
-		status := fmt.Sprintf("Processed %s%s.", util.LangNum1MutateSuffix(m.total, "file"), mode)
+		status := fmt.Sprintf("Processed %s%s.", util.LangNum1MutateSuffix(context.NumTotal, "file"), mode)
 		cprint(termOKFG, status)
 		m.log(status)
 
-		if m.progress == Fancy && m.total > 0 {
+		if m.progress == Fancy && context.NumTotal > 0 {
 			elapsed := time.Since(m.fps.Start)
 			elapsedS := elapsed.Seconds()
 			fmt.Println("-", elapsed.Truncate(time.Second), "elapsed")
@@ -228,17 +220,26 @@ func (m *Main) printResult(context *chkbit.Context) {
 			fmt.Printf("- %.2f MB/second\n", (float64(m.bps.Total)+float64(m.bps.Current))/float64(sizeMB)/elapsedS)
 		}
 
+		del := ""
 		if context.UpdateIndex {
-			if m.numIdxUpd > 0 {
-				cprint(termOKFG, fmt.Sprintf("- %s updated\n- %s added\n- %s updated",
-					util.LangNum1Choice(m.numIdxUpd, "directory was", "directories were"),
-					util.LangNum1Choice(m.numNew, "file hash was", "file hashes were"),
-					util.LangNum1Choice(m.numUpd, "file hash was", "file hashes were")))
+			if context.NumIdxUpd > 0 {
+				if context.NumDel > 0 {
+					del = fmt.Sprintf("\n- %s been removed", util.LangNum1Choice(context.NumDel, "file/directory has", "files/directories have"))
+				}
+				cprint(termOKFG, fmt.Sprintf("- %s updated\n- %s added\n- %s updated%s",
+					util.LangNum1Choice(context.NumIdxUpd, "directory was", "directories were"),
+					util.LangNum1Choice(context.NumNew, "file hash was", "file hashes were"),
+					util.LangNum1Choice(context.NumUpd, "file hash was", "file hashes were"),
+					del))
 			}
-		} else if m.numNew+m.numUpd > 0 {
-			cprint(termAlertFG, fmt.Sprintf("No changes were made (specify -u to update):\n- %s would have been added and\n- %s would have been updated.",
-				util.LangNum1MutateSuffix(m.numNew, "file"),
-				util.LangNum1MutateSuffix(m.numUpd, "file")))
+		} else if context.NumNew+context.NumUpd+context.NumDel > 0 {
+			if context.NumDel > 0 {
+				del = fmt.Sprintf("\n- %s would have been removed", util.LangNum1Choice(context.NumDel, "file/directory", "files/directories"))
+			}
+			cprint(termAlertFG, fmt.Sprintf("No changes were made (specify -u to update):\n- %s would have been added\n- %s would have been updated%s",
+				util.LangNum1MutateSuffix(context.NumNew, "file"),
+				util.LangNum1MutateSuffix(context.NumUpd, "file"),
+				del))
 		}
 	}
 

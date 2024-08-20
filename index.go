@@ -5,6 +5,8 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"reflect"
+	"slices"
 )
 
 const VERSION = 2 // index version
@@ -24,6 +26,8 @@ type indexFile struct {
 	// IdxRaw -> map[string]idxInfo
 	IdxRaw  json.RawMessage `json:"idx"`
 	IdxHash string          `json:"idx_hash"`
+	// 2024-08 optional, list of subdirectories
+	Dir []string `json:"dirlist,omitempty"`
 }
 
 type idxInfo1 struct {
@@ -36,23 +40,28 @@ type indexFile1 struct {
 }
 
 type Index struct {
-	context  *Context
-	path     string
-	files    []string
-	cur      map[string]idxInfo
-	new      map[string]idxInfo
-	modified bool
-	readonly bool
+	context    *Context
+	path       string
+	files      []string
+	cur        map[string]idxInfo
+	new        map[string]idxInfo
+	curDirList []string
+	newDirList []string
+	modified   bool
+	readonly   bool
 }
 
-func NewIndex(context *Context, path string, files []string, readonly bool) *Index {
+func newIndex(context *Context, path string, files []string, dirList []string, readonly bool) *Index {
+	slices.Sort(dirList)
 	return &Index{
-		context:  context,
-		path:     path,
-		files:    files,
-		cur:      make(map[string]idxInfo),
-		new:      make(map[string]idxInfo),
-		readonly: readonly,
+		context:    context,
+		path:       path,
+		files:      files,
+		cur:        make(map[string]idxInfo),
+		new:        make(map[string]idxInfo),
+		curDirList: make([]string, 0),
+		newDirList: dirList,
+		readonly:   readonly,
 	}
 }
 
@@ -70,6 +79,10 @@ func (i *Index) logFilePanic(name string, message string) {
 
 func (i *Index) logFile(stat Status, name string) {
 	i.context.log(stat, filepath.Join(i.path, name))
+}
+
+func (i *Index) logDir(stat Status, name string) {
+	i.context.log(stat, filepath.Join(i.path, name)+"/")
 }
 
 func (i *Index) calcHashes(ignore *Ignore) {
@@ -153,6 +166,26 @@ func (i *Index) checkFix(forceUpdateDmg bool) {
 			}
 		}
 	}
+	if i.context.ShowMissing {
+		for name := range i.cur {
+			if _, ok := i.new[name]; !ok {
+				i.logFile(STATUS_MISSING, name)
+				i.setMod(true)
+			}
+		}
+		// dirs
+		m := make(map[string]bool)
+		for _, n := range i.newDirList {
+			m[n] = true
+		}
+		for _, name := range i.curDirList {
+			if !m[name] {
+				i.logDir(STATUS_MISSING, name+"/")
+				i.setMod(true)
+			}
+		}
+
+	}
 }
 
 func (i *Index) calcFile(name string, a string) (*idxInfo, error) {
@@ -186,6 +219,9 @@ func (i *Index) save() (bool, error) {
 			IdxRaw:  text,
 			IdxHash: hashMd5(text),
 		}
+		if i.context.TrackDirectories {
+			data.Dir = i.newDirList
+		}
 
 		file, err := json.Marshal(data)
 		if err != nil {
@@ -205,6 +241,8 @@ func (i *Index) save() (bool, error) {
 func (i *Index) load() error {
 	if _, err := os.Stat(i.getIndexFilepath()); err != nil {
 		if os.IsNotExist(err) {
+			// todo
+			i.setMod(true)
 			return nil
 		}
 		return err
@@ -246,6 +284,13 @@ func (i *Index) load() error {
 					Hash:    &item.Hash,
 				}
 			}
+		}
+	}
+	if data.Dir != nil {
+		slices.Sort(data.Dir)
+		i.curDirList = data.Dir
+		if i.context.TrackDirectories && !reflect.DeepEqual(i.curDirList, i.newDirList) {
+			i.setMod(true)
 		}
 	}
 	return nil

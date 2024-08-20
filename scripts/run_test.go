@@ -11,6 +11,8 @@ import (
 	"time"
 )
 
+// perform integration test using the compiled binary
+
 var testDir = "/tmp/chkbit"
 
 func getCmd() string {
@@ -22,6 +24,12 @@ func getCmd() string {
 func checkOut(t *testing.T, sout string, expected string) {
 	if !strings.Contains(sout, expected) {
 		t.Errorf("Expected '%s' in output, got '%s'\n", expected, sout)
+	}
+}
+
+func checkNotOut(t *testing.T, sout string, notExpected string) {
+	if strings.Contains(sout, notExpected) {
+		t.Errorf("Did not expect '%s' in output, got '%s'\n", notExpected, sout)
 	}
 }
 
@@ -128,14 +136,59 @@ func TestRoot(t *testing.T) {
 
 	tool := getCmd()
 	root := filepath.Join(testDir, "root")
-	cmd := exec.Command(tool, "-u", root)
+
+	// step1: update index
+	cmd := exec.Command(tool, "-um", root)
 	out, err := cmd.Output()
 	if err != nil {
-		t.Fatalf("cmd.Output() failed with '%s'\n", err)
+		t.Fatalf("step1 failed with '%s'\n", err)
 	}
 	sout := string(out)
-	checkOut(t, sout, "60 directories were updated")
+	checkOut(t, sout, "67 directories were updated")
 	checkOut(t, sout, "300 file hashes were added")
+	checkNotOut(t, sout, "removed")
+
+	// step2: delete files, check for missing
+	os.RemoveAll(filepath.Join(root, "thing/change"))
+	os.Remove(filepath.Join(root, "time/hour/minute/body-information.csv"))
+
+	cmd = exec.Command(tool, "-m", root)
+	out, err = cmd.Output()
+	if err != nil {
+		t.Fatalf("step2 failed with '%s'\n", err)
+	}
+	sout = string(out)
+	checkOut(t, sout, "del /tmp/chkbit/root/thing/change/")
+	checkOut(t, sout, "2 files/directories would have been removed")
+
+	// step2a: do not report missing without -m
+	cmd = exec.Command(tool, root)
+	out, err = cmd.Output()
+	if err != nil {
+		t.Fatalf("step2a failed with '%s'\n", err)
+	}
+	sout = string(out)
+	checkNotOut(t, sout, "del ")
+	checkNotOut(t, sout, "removed")
+
+	// step3: check for missing and update
+	cmd = exec.Command(tool, "-um", root)
+	out, err = cmd.Output()
+	if err != nil {
+		t.Fatalf("step3 failed with '%s'\n", err)
+	}
+	sout = string(out)
+	checkOut(t, sout, "del /tmp/chkbit/root/thing/change/")
+	checkOut(t, sout, "2 files/directories have been removed")
+
+	// step4: check again
+	cmd = exec.Command(tool, "-u", root)
+	out, err = cmd.Output()
+	if err != nil {
+		t.Fatalf("step4 failed with '%s'\n", err)
+	}
+	sout = string(out)
+	checkOut(t, sout, "Processed 289 files")
 }
 
 func TestDMG(t *testing.T) {

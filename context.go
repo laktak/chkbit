@@ -8,18 +8,26 @@ import (
 )
 
 type Context struct {
-	NumWorkers      int
-	ForceUpdateDmg  bool
-	UpdateIndex     bool
-	ShowIgnoredOnly bool
-	HashAlgo        string
-	SkipSymlinks    bool
-	IndexFilename   string
-	IgnoreFilename  string
-	WorkQueue       chan *WorkItem
-	LogQueue        chan *LogEvent
-	PerfQueue       chan *PerfEvent
-	wg              sync.WaitGroup
+	NumWorkers       int
+	UpdateIndex      bool
+	ShowIgnoredOnly  bool
+	ShowMissing      bool
+	ForceUpdateDmg   bool
+	HashAlgo         string
+	TrackDirectories bool
+	SkipSymlinks     bool
+	IndexFilename    string
+	IgnoreFilename   string
+	WorkQueue        chan *WorkItem
+	LogQueue         chan *LogEvent
+	PerfQueue        chan *PerfEvent
+	wg               sync.WaitGroup
+
+	NumTotal  int
+	NumIdxUpd int
+	NumNew    int
+	NumUpd    int
+	NumDel    int
 }
 
 func NewContext(numWorkers int, hashAlgo string, indexFilename string, ignoreFilename string) (*Context, error) {
@@ -44,6 +52,29 @@ func NewContext(numWorkers int, hashAlgo string, indexFilename string, ignoreFil
 }
 
 func (context *Context) log(stat Status, message string) {
+	switch stat {
+	case STATUS_ERR_DMG:
+		context.NumTotal++
+	case STATUS_UPDATE_INDEX:
+		context.NumIdxUpd++
+	case STATUS_UP_WARN_OLD:
+		context.NumTotal++
+		context.NumUpd++
+	case STATUS_UPDATE:
+		context.NumTotal++
+		context.NumUpd++
+	case STATUS_NEW:
+		context.NumTotal++
+		context.NumNew++
+	case STATUS_OK:
+		context.NumTotal++
+	case STATUS_MISSING:
+		context.NumDel++
+		//case STATUS_PANIC:
+		//case STATUS_ERR_IDX:
+		//case STATUS_IGNORE:
+	}
+
 	context.LogQueue <- &LogEvent{stat, message}
 }
 
@@ -59,8 +90,8 @@ func (context *Context) perfMonBytes(numBytes int64) {
 	context.PerfQueue <- &PerfEvent{0, numBytes}
 }
 
-func (context *Context) addWork(path string, filesToIndex []string, ignore *Ignore) {
-	context.WorkQueue <- &WorkItem{path, filesToIndex, ignore}
+func (context *Context) addWork(path string, filesToIndex []string, dirList []string, ignore *Ignore) {
+	context.WorkQueue <- &WorkItem{path, filesToIndex, dirList, ignore}
 }
 
 func (context *Context) endWork() {
@@ -72,6 +103,12 @@ func (context *Context) isChkbitFile(name string) bool {
 }
 
 func (context *Context) Start(pathList []string) {
+	context.NumTotal = 0
+	context.NumIdxUpd = 0
+	context.NumNew = 0
+	context.NumUpd = 0
+	context.NumDel = 0
+
 	var wg sync.WaitGroup
 	wg.Add(context.NumWorkers)
 	for i := 0; i < context.NumWorkers; i++ {
@@ -141,7 +178,7 @@ func (context *Context) scanDir(root string, parentIgnore *Ignore) {
 		}
 	}
 
-	context.addWork(root, filesToIndex, ignore)
+	context.addWork(root, filesToIndex, dirList, ignore)
 
 	for _, name := range dirList {
 		context.scanDir(filepath.Join(root, name), ignore)

@@ -7,5 +7,5 @@ cd $script_dir/..
 # prep
 $script_dir/build
 
-go test -v ./cmd/chkbit/util
-go test -v ./scripts
+go test -v ./cmd/chkbit/util -count=1
+go test -v ./scripts -count=1

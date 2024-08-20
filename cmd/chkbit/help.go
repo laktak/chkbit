@@ -19,6 +19,7 @@ Status codes:
   new: new file
   upd: file updated
   ok : check ok
+  del: file/directory removed
   ign: ignored (see .chkbitignore)
   EXC: exception/panic
 `

@@ -97,9 +97,11 @@ Flags:
   -H, --tips                           Show tips.
   -u, --update                         update indices (without this chkbit will verify files in readonly mode)
       --show-ignored-only              only show ignored files
+  -m, --show-missing                   show missing files/directories
       --algo="blake3"                  hash algorithm: md5, sha512, blake3 (default: blake3)
   -f, --force                          force update of damaged items
   -s, --skip-symlinks                  do not follow symlinks
+  -D, --no-dir-in-index                do not track directories in the index
   -l, --log-file=STRING                write to a logfile if specified
       --log-verbose                    verbose logging
       --index-name=".chkbit"           filename where chkbit stores its hashes, needs to start with '.' (default: .chkbit)
@@ -109,6 +111,27 @@ Flags:
   -q, --quiet                          quiet, don't show progress/information
   -v, --verbose                        verbose output
   -V, --version                        show version information
+```
+
+```
+$ chkbit -H
+
+.chkbitignore rules:
+  each line should contain exactly one name
+  you may use Unix shell-style wildcards (see README)
+  lines starting with '#' are skipped
+  lines starting with '/' are only applied to the current directory
+
+Status codes:
+  DMG: error, data damage detected
+  EIX: error, index damaged
+  old: warning, file replaced by an older version
+  new: new file
+  upd: file updated
+  ok : check ok
+  del: file/directory removed
+  ign: ignored (see .chkbitignore)
+  EXC: exception/panic
 ```
 
 chkbit is set to use only 5 workers by default so it will not slow your system to a crawl. You can specify a higher number to make it a lot faster if the IO throughput can also keep up.
