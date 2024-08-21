@@ -1,4 +1,4 @@
-module github.com/laktak/chkbit
+module github.com/laktak/chkbit/v5
 
 go 1.22.3
 

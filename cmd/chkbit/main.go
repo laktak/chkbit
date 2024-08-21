@@ -10,8 +10,8 @@ import (
 	"time"
 
 	"github.com/alecthomas/kong"
-	"github.com/laktak/chkbit"
-	"github.com/laktak/chkbit/cmd/chkbit/util"
+	"github.com/laktak/chkbit/v5"
+	"github.com/laktak/chkbit/v5/cmd/chkbit/util"
 	"github.com/laktak/lterm"
 )
 
