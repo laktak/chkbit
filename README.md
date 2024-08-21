@@ -84,16 +84,17 @@ Arguments:
 Flags:
   -h, --help                           Show context-sensitive help.
   -H, --tips                           Show tips.
-  -u, --update                         update indices (without this chkbit will verify files in readonly mode)
-  -i, --show-ignored-only              only show ignored files (will not check hashes in this mode)
+  -c, --check                          check mode: chkbit will verify files in readonly mode (default mode)
+  -u, --update                         update mode: add and update indices
+  -i, --show-ignored-only              show-ignored mode: only show ignored files
   -m, --show-missing                   show missing files/directories
-      --algo="blake3"                  hash algorithm: md5, sha512, blake3 (default: blake3)
-      --force                          force update of damaged items
+      --force                          force update of damaged items (advanced usage only)
   -S, --skip-symlinks                  do not follow symlinks
   -R, --no-recurse                     do not recurse into subdirectories
   -D, --no-dir-in-index                do not track directories in the index
   -l, --log-file=STRING                write to a logfile if specified
       --log-verbose                    verbose logging
+      --algo="blake3"                  hash algorithm: md5, sha512, blake3 (default: blake3)
       --index-name=".chkbit"           filename where chkbit stores its hashes, needs to start with '.' (default: .chkbit)
       --ignore-name=".chkbitignore"    filename that chkbit reads its ignore list from, needs to start with '.' (default: .chkbitignore)
   -w, --workers=5                      number of workers to use (default: 5)

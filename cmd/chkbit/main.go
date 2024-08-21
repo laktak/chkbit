@@ -44,16 +44,17 @@ var (
 var cli struct {
 	Paths           []string `arg:"" optional:"" name:"paths" help:"directories to check"`
 	Tips            bool     `short:"H" help:"Show tips."`
-	Update          bool     `short:"u" help:"update indices (without this chkbit will verify files in readonly mode)"`
-	ShowIgnoredOnly bool     `short:"i" help:"only show ignored files (will not check hashes in this mode)"`
+	Check           bool     `short:"c" help:"check mode: chkbit will verify files in readonly mode (default mode)"`
+	Update          bool     `short:"u" help:"update mode: add and update indices"`
+	ShowIgnoredOnly bool     `short:"i" help:"show-ignored mode: only show ignored files"`
 	ShowMissing     bool     `short:"m" help:"show missing files/directories"`
-	Algo            string   `default:"blake3" help:"hash algorithm: md5, sha512, blake3 (default: blake3)"`
-	Force           bool     `help:"force update of damaged items"`
+	Force           bool     `help:"force update of damaged items (advanced usage only)"`
 	SkipSymlinks    bool     `short:"S" help:"do not follow symlinks"`
 	NoRecurse       bool     `short:"R" help:"do not recurse into subdirectories"`
 	NoDirInIndex    bool     `short:"D" help:"do not track directories in the index"`
 	LogFile         string   `short:"l" help:"write to a logfile if specified"`
 	LogVerbose      bool     `help:"verbose logging"`
+	Algo            string   `default:"blake3" help:"hash algorithm: md5, sha512, blake3 (default: blake3)"`
 	IndexName       string   `default:".chkbit" help:"filename where chkbit stores its hashes, needs to start with '.' (default: .chkbit)"`
 	IgnoreName      string   `default:".chkbitignore" help:"filename that chkbit reads its ignore list from, needs to start with '.' (default: .chkbitignore)"`
 	Workers         int      `short:"w" default:"5" help:"number of workers to use (default: 5)"`
@@ -155,8 +156,10 @@ func (m *Main) showStatus() {
 }
 
 func (m *Main) process() bool {
-	if cli.Update && cli.ShowIgnoredOnly {
-		fmt.Println("Error: use either --update or --show-ignored-only!")
+	// verify mode
+	var b01 = map[bool]int8{false: 0, true: 1}
+	if b01[cli.Check]+b01[cli.Update]+b01[cli.ShowIgnoredOnly] > 1 {
+		fmt.Println("Error: can only run one mode at a time!")
 		return false
 	}
 
