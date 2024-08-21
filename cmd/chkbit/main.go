@@ -50,6 +50,7 @@ var cli struct {
 	Algo            string   `default:"blake3" help:"hash algorithm: md5, sha512, blake3 (default: blake3)"`
 	Force           bool     `short:"f" help:"force update of damaged items"`
 	SkipSymlinks    bool     `short:"s" help:"do not follow symlinks"`
+	NoRecurse       bool     `short:"R" help:"do not recurse into subdirectories"`
 	NoDirInIndex    bool     `short:"D" help:"do not track directories in the index"`
 	LogFile         string   `short:"l" help:"write to a logfile if specified"`
 	LogVerbose      bool     `help:"verbose logging"`
@@ -170,6 +171,7 @@ func (m *Main) process() bool {
 	m.context.ShowIgnoredOnly = cli.ShowIgnoredOnly
 	m.context.ShowMissing = cli.ShowMissing
 	m.context.SkipSymlinks = cli.SkipSymlinks
+	m.context.SkipSubdirectories = cli.NoRecurse
 	m.context.TrackDirectories = !cli.NoDirInIndex
 
 	var wg sync.WaitGroup

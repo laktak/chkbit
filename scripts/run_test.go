@@ -137,60 +137,87 @@ func TestRoot(t *testing.T) {
 	tool := getCmd()
 	root := filepath.Join(testDir, "root")
 
-	// step1: update index
-	cmd := exec.Command(tool, "-um", root)
-	out, err := cmd.Output()
-	if err != nil {
-		t.Fatalf("step1 failed with '%s'\n", err)
-	}
-	sout := string(out)
-	checkOut(t, sout, "67 directories were updated")
-	checkOut(t, sout, "300 file hashes were added")
-	checkNotOut(t, sout, "removed")
-
-	// step2: delete files, check for missing
-	os.RemoveAll(filepath.Join(root, "thing/change"))
-	os.Remove(filepath.Join(root, "time/hour/minute/body-information.csv"))
-
-	cmd = exec.Command(tool, "-m", root)
-	out, err = cmd.Output()
-	if err != nil {
-		t.Fatalf("step2 failed with '%s'\n", err)
-	}
-	sout = string(out)
-	checkOut(t, sout, "del /tmp/chkbit/root/thing/change/")
-	checkOut(t, sout, "2 files/directories would have been removed")
-
-	// step2a: do not report missing without -m
-	cmd = exec.Command(tool, root)
-	out, err = cmd.Output()
-	if err != nil {
-		t.Fatalf("step2a failed with '%s'\n", err)
-	}
-	sout = string(out)
-	checkNotOut(t, sout, "del ")
-	checkNotOut(t, sout, "removed")
-
-	// step3: check for missing and update
-	cmd = exec.Command(tool, "-um", root)
-	out, err = cmd.Output()
-	if err != nil {
-		t.Fatalf("step3 failed with '%s'\n", err)
-	}
-	sout = string(out)
-	checkOut(t, sout, "del /tmp/chkbit/root/thing/change/")
-	checkOut(t, sout, "2 files/directories have been removed")
-
-	// step4: check again
-	for i := 0; i < 10; i++ {
-		cmd = exec.Command(tool, "-u", root)
-		out, err = cmd.Output()
+	// update index, no recourse
+	t.Run("Step1", func(t *testing.T) {
+		cmd := exec.Command(tool, "-umR", filepath.Join(root, "day/office"))
+		out, err := cmd.Output()
 		if err != nil {
-			t.Fatalf("step4 failed with '%s'\n", err)
+			t.Fatalf("failed with '%s'\n", err)
 		}
-		sout = string(out)
-		checkOut(t, sout, "Processed 289 files")
-	}
+		sout := string(out)
+		checkOut(t, sout, "Processed 5 files")
+		checkOut(t, sout, "- 1 directory was updated")
+		checkOut(t, sout, "- 5 file hashes were added")
+		checkOut(t, sout, "- 0 file hashes were updated")
+		checkNotOut(t, sout, "removed")
+	})
+
+	// update remaining index from root
+	t.Run("Step2", func(t *testing.T) {
+		cmd := exec.Command(tool, "-um", root)
+		out, err := cmd.Output()
+		if err != nil {
+			t.Fatalf("failed with '%s'\n", err)
+		}
+		sout := string(out)
+		checkOut(t, sout, "Processed 300 files")
+		checkOut(t, sout, "- 66 directories were updated")
+		checkOut(t, sout, "- 295 file hashes were added")
+		checkOut(t, sout, "- 0 file hashes were updated")
+		checkNotOut(t, sout, "removed")
+	})
+
+	// delete files, check for missing
+	t.Run("Step3", func(t *testing.T) {
+		os.RemoveAll(filepath.Join(root, "thing/change"))
+		os.Remove(filepath.Join(root, "time/hour/minute/body-information.csv"))
+
+		cmd := exec.Command(tool, "-m", root)
+		out, err := cmd.Output()
+		if err != nil {
+			t.Fatalf("failed with '%s'\n", err)
+		}
+		sout := string(out)
+		checkOut(t, sout, "del /tmp/chkbit/root/thing/change/")
+		checkOut(t, sout, "2 files/directories would have been removed")
+	})
+
+	// do not report missing without -m
+	t.Run("Step4", func(t *testing.T) {
+		cmd := exec.Command(tool, root)
+		out, err := cmd.Output()
+		if err != nil {
+			t.Fatalf("failed with '%s'\n", err)
+		}
+		sout := string(out)
+		checkNotOut(t, sout, "del ")
+		checkNotOut(t, sout, "removed")
+	})
+
+	// check for missing and update
+	t.Run("Step5", func(t *testing.T) {
+		cmd := exec.Command(tool, "-um", root)
+		out, err := cmd.Output()
+		if err != nil {
+			t.Fatalf("failed with '%s'\n", err)
+		}
+		sout := string(out)
+		checkOut(t, sout, "del /tmp/chkbit/root/thing/change/")
+		checkOut(t, sout, "2 files/directories have been removed")
+	})
+
+	// check again
+	t.Run("Step6", func(t *testing.T) {
+		for i := 0; i < 10; i++ {
+			cmd := exec.Command(tool, "-u", root)
+			out, err := cmd.Output()
+			if err != nil {
+				t.Fatalf("failed with '%s'\n", err)
+			}
+			sout := string(out)
+			checkOut(t, sout, "Processed 289 files")
+		}
+	})
 }
 
 func TestDMG(t *testing.T) {
@@ -216,50 +243,58 @@ func TestDMG(t *testing.T) {
 	t2, _ := time.Parse(time.RFC3339, "2022-02-01T12:00:00Z")
 	t3, _ := time.Parse(time.RFC3339, "2022-02-01T13:00:00Z")
 
-	// step1: create test and set the modified time"
-	os.WriteFile(testFile, []byte("foo1"), 0644)
-	os.Chtimes(testFile, t2, t2)
+	// create test and set the modified time"
+	t.Run("Step1", func(t *testing.T) {
+		os.WriteFile(testFile, []byte("foo1"), 0644)
+		os.Chtimes(testFile, t2, t2)
 
-	cmd := exec.Command(tool, "-u", ".")
-	if out, err := cmd.Output(); err != nil {
-		t.Fatalf("step1 failed with '%s'\n", err)
-	} else {
-		checkOut(t, string(out), "new test.txt")
-	}
-
-	// step2: update test with different content & old modified (expect 'old')"
-	os.WriteFile(testFile, []byte("foo2"), 0644)
-	os.Chtimes(testFile, t1, t1)
-
-	cmd = exec.Command(tool, "-u", ".")
-	if out, err := cmd.Output(); err != nil {
-		t.Fatalf("step2 failed with '%s'\n", err)
-	} else {
-		checkOut(t, string(out), "old test.txt")
-	}
-
-	// step3: update test & new modified (expect 'upd')"
-	os.WriteFile(testFile, []byte("foo3"), 0644)
-	os.Chtimes(testFile, t3, t3)
-
-	cmd = exec.Command(tool, "-u", ".")
-	if out, err := cmd.Output(); err != nil {
-		t.Fatalf("step3 failed with '%s'\n", err)
-	} else {
-		checkOut(t, string(out), "upd test.txt")
-	}
-
-	// step4: Now update test with the same modified to simulate damage (expect DMG)"
-	os.WriteFile(testFile, []byte("foo4"), 0644)
-	os.Chtimes(testFile, t3, t3)
-
-	cmd = exec.Command(tool, "-u", ".")
-	if out, err := cmd.Output(); err != nil {
-		if cmd.ProcessState.ExitCode() != 1 {
-			t.Fatalf("step4 expected to fail with exit code 1 vs %d!", cmd.ProcessState.ExitCode())
+		cmd := exec.Command(tool, "-u", ".")
+		if out, err := cmd.Output(); err != nil {
+			t.Fatalf("failed with '%s'\n", err)
+		} else {
+			checkOut(t, string(out), "new test.txt")
 		}
-		checkOut(t, string(out), "DMG test.txt")
-	} else {
-		t.Fatal("step4 expected to fail!")
-	}
+	})
+
+	// update test with different content & old modified (expect 'old')"
+	t.Run("Step2", func(t *testing.T) {
+		os.WriteFile(testFile, []byte("foo2"), 0644)
+		os.Chtimes(testFile, t1, t1)
+
+		cmd := exec.Command(tool, "-u", ".")
+		if out, err := cmd.Output(); err != nil {
+			t.Fatalf("failed with '%s'\n", err)
+		} else {
+			checkOut(t, string(out), "old test.txt")
+		}
+	})
+
+	// update test & new modified (expect 'upd')"
+	t.Run("Step3", func(t *testing.T) {
+		os.WriteFile(testFile, []byte("foo3"), 0644)
+		os.Chtimes(testFile, t3, t3)
+
+		cmd := exec.Command(tool, "-u", ".")
+		if out, err := cmd.Output(); err != nil {
+			t.Fatalf("failed with '%s'\n", err)
+		} else {
+			checkOut(t, string(out), "upd test.txt")
+		}
+	})
+
+	// Now update test with the same modified to simulate damage (expect DMG)"
+	t.Run("Step4", func(t *testing.T) {
+		os.WriteFile(testFile, []byte("foo4"), 0644)
+		os.Chtimes(testFile, t3, t3)
+
+		cmd := exec.Command(tool, "-u", ".")
+		if out, err := cmd.Output(); err != nil {
+			if cmd.ProcessState.ExitCode() != 1 {
+				t.Fatalf("expected to fail with exit code 1 vs %d!", cmd.ProcessState.ExitCode())
+			}
+			checkOut(t, string(out), "DMG test.txt")
+		} else {
+			t.Fatal("expected to fail!")
+		}
+	})
 }

@@ -90,6 +90,7 @@ Flags:
       --algo="blake3"                  hash algorithm: md5, sha512, blake3 (default: blake3)
   -f, --force                          force update of damaged items
   -s, --skip-symlinks                  do not follow symlinks
+  -R, --no-recurse                     do not recurse into subdirectories
   -D, --no-dir-in-index                do not track directories in the index
   -l, --log-file=STRING                write to a logfile if specified
       --log-verbose                    verbose logging

@@ -8,20 +8,21 @@ import (
 )
 
 type Context struct {
-	NumWorkers       int
-	UpdateIndex      bool
-	ShowIgnoredOnly  bool
-	ShowMissing      bool
-	ForceUpdateDmg   bool
-	HashAlgo         string
-	TrackDirectories bool
-	SkipSymlinks     bool
-	IndexFilename    string
-	IgnoreFilename   string
-	WorkQueue        chan *WorkItem
-	LogQueue         chan *LogEvent
-	PerfQueue        chan *PerfEvent
-	wg               sync.WaitGroup
+	NumWorkers         int
+	UpdateIndex        bool
+	ShowIgnoredOnly    bool
+	ShowMissing        bool
+	ForceUpdateDmg     bool
+	HashAlgo           string
+	TrackDirectories   bool
+	SkipSymlinks       bool
+	SkipSubdirectories bool
+	IndexFilename      string
+	IgnoreFilename     string
+	WorkQueue          chan *WorkItem
+	LogQueue           chan *LogEvent
+	PerfQueue          chan *PerfEvent
+	wg                 sync.WaitGroup
 
 	mutex     sync.Mutex
 	NumTotal  int
@@ -183,7 +184,9 @@ func (context *Context) scanDir(root string, parentIgnore *Ignore) {
 
 	context.addWork(root, filesToIndex, dirList, ignore)
 
-	for _, name := range dirList {
-		context.scanDir(filepath.Join(root, name), ignore)
+	if !context.SkipSubdirectories {
+		for _, name := range dirList {
+			context.scanDir(filepath.Join(root, name), ignore)
+		}
 	}
 }
