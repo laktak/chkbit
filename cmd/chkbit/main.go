@@ -45,11 +45,11 @@ var cli struct {
 	Paths           []string `arg:"" optional:"" name:"paths" help:"directories to check"`
 	Tips            bool     `short:"H" help:"Show tips."`
 	Update          bool     `short:"u" help:"update indices (without this chkbit will verify files in readonly mode)"`
-	ShowIgnoredOnly bool     `help:"only show ignored files"`
+	ShowIgnoredOnly bool     `short:"i" help:"only show ignored files (will not check hashes in this mode)"`
 	ShowMissing     bool     `short:"m" help:"show missing files/directories"`
 	Algo            string   `default:"blake3" help:"hash algorithm: md5, sha512, blake3 (default: blake3)"`
-	Force           bool     `short:"f" help:"force update of damaged items"`
-	SkipSymlinks    bool     `short:"s" help:"do not follow symlinks"`
+	Force           bool     `help:"force update of damaged items"`
+	SkipSymlinks    bool     `short:"S" help:"do not follow symlinks"`
 	NoRecurse       bool     `short:"R" help:"do not recurse into subdirectories"`
 	NoDirInIndex    bool     `short:"D" help:"do not track directories in the index"`
 	LogFile         string   `short:"l" help:"write to a logfile if specified"`

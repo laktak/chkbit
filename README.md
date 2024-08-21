@@ -85,11 +85,11 @@ Flags:
   -h, --help                           Show context-sensitive help.
   -H, --tips                           Show tips.
   -u, --update                         update indices (without this chkbit will verify files in readonly mode)
-      --show-ignored-only              only show ignored files
+  -i, --show-ignored-only              only show ignored files (will not check hashes in this mode)
   -m, --show-missing                   show missing files/directories
       --algo="blake3"                  hash algorithm: md5, sha512, blake3 (default: blake3)
-  -f, --force                          force update of damaged items
-  -s, --skip-symlinks                  do not follow symlinks
+      --force                          force update of damaged items
+  -S, --skip-symlinks                  do not follow symlinks
   -R, --no-recurse                     do not recurse into subdirectories
   -D, --no-dir-in-index                do not track directories in the index
   -l, --log-file=STRING                write to a logfile if specified
