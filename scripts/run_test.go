@@ -182,13 +182,15 @@ func TestRoot(t *testing.T) {
 	checkOut(t, sout, "2 files/directories have been removed")
 
 	// step4: check again
-	cmd = exec.Command(tool, "-u", root)
-	out, err = cmd.Output()
-	if err != nil {
-		t.Fatalf("step4 failed with '%s'\n", err)
+	for i := 0; i < 10; i++ {
+		cmd = exec.Command(tool, "-u", root)
+		out, err = cmd.Output()
+		if err != nil {
+			t.Fatalf("step4 failed with '%s'\n", err)
+		}
+		sout = string(out)
+		checkOut(t, sout, "Processed 289 files")
 	}
-	sout = string(out)
-	checkOut(t, sout, "Processed 289 files")
 }
 
 func TestDMG(t *testing.T) {

@@ -63,6 +63,7 @@ var cli struct {
 }
 
 type Main struct {
+	context    *chkbit.Context
 	dmgList    []string
 	errList    []string
 	verbose    bool
@@ -104,12 +105,12 @@ func (m *Main) logStatus(stat chkbit.Status, message string) bool {
 	return false
 }
 
-func (m *Main) showStatus(context *chkbit.Context) {
+func (m *Main) showStatus() {
 	last := time.Now().Add(-updateInterval)
 	stat := ""
 	for {
 		select {
-		case item := <-context.LogQueue:
+		case item := <-m.context.LogQueue:
 			if item == nil {
 				if m.progress == Fancy {
 					lterm.Printline("")
@@ -120,10 +121,10 @@ func (m *Main) showStatus(context *chkbit.Context) {
 				if m.progress == Fancy {
 					lterm.Write(termBG, termFG1, stat, lterm.ClearLine(0), lterm.Reset, "\r")
 				} else {
-					fmt.Print(context.NumTotal, "\r")
+					fmt.Print(m.context.NumTotal, "\r")
 				}
 			}
-		case perf := <-context.PerfQueue:
+		case perf := <-m.context.PerfQueue:
 			now := time.Now()
 			m.fps.Push(now, perf.NumFiles)
 			m.bps.Push(now, perf.NumBytes)
@@ -133,11 +134,11 @@ func (m *Main) showStatus(context *chkbit.Context) {
 					statF := fmt.Sprintf("%d files/s", m.fps.Last())
 					statB := fmt.Sprintf("%d MB/s", m.bps.Last()/sizeMB)
 					stat = "RW"
-					if !context.UpdateIndex {
+					if !m.context.UpdateIndex {
 						stat = "RO"
 					}
 					stat = fmt.Sprintf("[%s:%d] %5d files $ %s %-13s $ %s %-13s",
-						stat, context.NumWorkers, context.NumTotal,
+						stat, m.context.NumWorkers, m.context.NumTotal,
 						util.Sparkline(m.fps.Stats), statF,
 						util.Sparkline(m.bps.Stats), statB)
 					stat = util.LeftTruncate(stat, m.termWidth-1)
@@ -145,44 +146,45 @@ func (m *Main) showStatus(context *chkbit.Context) {
 					stat = strings.Replace(stat, "$", termSepFG+termSep+termFG3, 1)
 					lterm.Write(termBG, termFG1, stat, lterm.ClearLine(0), lterm.Reset, "\r")
 				} else if m.progress == Plain {
-					fmt.Print(context.NumTotal, "\r")
+					fmt.Print(m.context.NumTotal, "\r")
 				}
 			}
 		}
 	}
 }
 
-func (m *Main) process() *chkbit.Context {
+func (m *Main) process() bool {
 	if cli.Update && cli.ShowIgnoredOnly {
 		fmt.Println("Error: use either --update or --show-ignored-only!")
-		return nil
+		return false
 	}
 
-	context, err := chkbit.NewContext(cli.Workers, cli.Algo, cli.IndexName, cli.IgnoreName)
+	var err error
+	m.context, err = chkbit.NewContext(cli.Workers, cli.Algo, cli.IndexName, cli.IgnoreName)
 	if err != nil {
 		fmt.Println(err)
-		return nil
+		return false
 	}
-	context.ForceUpdateDmg = cli.Force
-	context.UpdateIndex = cli.Update
-	context.ShowIgnoredOnly = cli.ShowIgnoredOnly
-	context.ShowMissing = cli.ShowMissing
-	context.SkipSymlinks = cli.SkipSymlinks
-	context.TrackDirectories = !cli.NoDirInIndex
+	m.context.ForceUpdateDmg = cli.Force
+	m.context.UpdateIndex = cli.Update
+	m.context.ShowIgnoredOnly = cli.ShowIgnoredOnly
+	m.context.ShowMissing = cli.ShowMissing
+	m.context.SkipSymlinks = cli.SkipSymlinks
+	m.context.TrackDirectories = !cli.NoDirInIndex
 
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		m.showStatus(context)
+		m.showStatus()
 	}()
-	context.Start(cli.Paths)
+	m.context.Start(cli.Paths)
 	wg.Wait()
 
-	return context
+	return true
 }
 
-func (m *Main) printResult(context *chkbit.Context) {
+func (m *Main) printResult() {
 	cprint := func(col, text string) {
 		if m.progress != Quiet {
 			if m.progress == Fancy {
@@ -205,14 +207,14 @@ func (m *Main) printResult(context *chkbit.Context) {
 
 	if m.progress != Quiet {
 		mode := ""
-		if !context.UpdateIndex {
+		if !m.context.UpdateIndex {
 			mode = " in readonly mode"
 		}
-		status := fmt.Sprintf("Processed %s%s.", util.LangNum1MutateSuffix(context.NumTotal, "file"), mode)
+		status := fmt.Sprintf("Processed %s%s.", util.LangNum1MutateSuffix(m.context.NumTotal, "file"), mode)
 		cprint(termOKFG, status)
 		m.log(status)
 
-		if m.progress == Fancy && context.NumTotal > 0 {
+		if m.progress == Fancy && m.context.NumTotal > 0 {
 			elapsed := time.Since(m.fps.Start)
 			elapsedS := elapsed.Seconds()
 			fmt.Println("-", elapsed.Truncate(time.Second), "elapsed")
@@ -221,24 +223,24 @@ func (m *Main) printResult(context *chkbit.Context) {
 		}
 
 		del := ""
-		if context.UpdateIndex {
-			if context.NumIdxUpd > 0 {
-				if context.NumDel > 0 {
-					del = fmt.Sprintf("\n- %s been removed", util.LangNum1Choice(context.NumDel, "file/directory has", "files/directories have"))
+		if m.context.UpdateIndex {
+			if m.context.NumIdxUpd > 0 {
+				if m.context.NumDel > 0 {
+					del = fmt.Sprintf("\n- %s been removed", util.LangNum1Choice(m.context.NumDel, "file/directory has", "files/directories have"))
 				}
 				cprint(termOKFG, fmt.Sprintf("- %s updated\n- %s added\n- %s updated%s",
-					util.LangNum1Choice(context.NumIdxUpd, "directory was", "directories were"),
-					util.LangNum1Choice(context.NumNew, "file hash was", "file hashes were"),
-					util.LangNum1Choice(context.NumUpd, "file hash was", "file hashes were"),
+					util.LangNum1Choice(m.context.NumIdxUpd, "directory was", "directories were"),
+					util.LangNum1Choice(m.context.NumNew, "file hash was", "file hashes were"),
+					util.LangNum1Choice(m.context.NumUpd, "file hash was", "file hashes were"),
 					del))
 			}
-		} else if context.NumNew+context.NumUpd+context.NumDel > 0 {
-			if context.NumDel > 0 {
-				del = fmt.Sprintf("\n- %s would have been removed", util.LangNum1Choice(context.NumDel, "file/directory", "files/directories"))
+		} else if m.context.NumNew+m.context.NumUpd+m.context.NumDel > 0 {
+			if m.context.NumDel > 0 {
+				del = fmt.Sprintf("\n- %s would have been removed", util.LangNum1Choice(m.context.NumDel, "file/directory", "files/directories"))
 			}
 			cprint(termAlertFG, fmt.Sprintf("No changes were made (specify -u to update):\n- %s would have been added\n- %s would have been updated%s",
-				util.LangNum1MutateSuffix(context.NumNew, "file"),
-				util.LangNum1MutateSuffix(context.NumUpd, "file"),
+				util.LangNum1MutateSuffix(m.context.NumNew, "file"),
+				util.LangNum1MutateSuffix(m.context.NumUpd, "file"),
 				del))
 		}
 	}
@@ -315,9 +317,8 @@ func (m *Main) run() {
 
 	if len(cli.Paths) > 0 {
 		m.log("chkbit " + strings.Join(cli.Paths, ", "))
-		context := m.process()
-		if context != nil && !context.ShowIgnoredOnly {
-			m.printResult(context)
+		if m.process() && !m.context.ShowIgnoredOnly {
+			m.printResult()
 		}
 	} else {
 		fmt.Println("specify a path to check, see -h")

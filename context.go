@@ -23,6 +23,7 @@ type Context struct {
 	PerfQueue        chan *PerfEvent
 	wg               sync.WaitGroup
 
+	mutex     sync.Mutex
 	NumTotal  int
 	NumIdxUpd int
 	NumNew    int
@@ -52,6 +53,8 @@ func NewContext(numWorkers int, hashAlgo string, indexFilename string, ignoreFil
 }
 
 func (context *Context) log(stat Status, message string) {
+	context.mutex.Lock()
+	defer context.mutex.Unlock()
 	switch stat {
 	case STATUS_ERR_DMG:
 		context.NumTotal++
