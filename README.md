@@ -8,10 +8,10 @@ chkbit is a tool that ensures the safety of your files by checking if their *dat
 
 - [How it works](#how-it-works)
 - [Installation](#installation)
-- [chkbit as a Go module](#chkbit-as-a-go-module)
 - [Usage](#usage)
 - [Repair](#repair)
 - [Ignore files](#ignore-files)
+- [chkbit as a Go module](#chkbit-as-a-go-module)
 - [FAQ](#faq)
 
 
@@ -50,7 +50,7 @@ Building from the source requires Go.
 - Either install it directly
 
 ```shell
-go install github.com/laktak/chkbit@latest
+go install github.com/laktak/chkbit/v5/cmd/chkbit@latest
 ```
 
 - or clone and build
@@ -58,20 +58,9 @@ go install github.com/laktak/chkbit@latest
 ```shell
 git clone https://github.com/laktak/chkbit
 chkbit/scripts/build
-# output is here:
-chkbit/chkbit
+# binary:
+ls -l chkbit/chkbit
 ```
-
-
-## chkbit as a Go module
-
-chkbit is can also be used in other Go programs.
-
-```
-go get github.com/laktak/chkbit
-```
-
-For more information see the linked documentation on [pkg.go.dev](https://pkg.go.dev/github.com/laktak/chkbit).
 
 
 ## Usage
@@ -161,6 +150,17 @@ Add a `.chkbitignore` file containing the names of the files/directories you wis
 - lines starting with `/` are only applied to the current directory
 - you can use `path/sub/name` to ignore a file/directory in a sub path
 - hidden files (starting with a `.`) are ignored by default
+
+
+## chkbit as a Go module
+
+chkbit is can also be used in other Go programs.
+
+```
+go get github.com/laktak/chkbit/v5
+```
+
+For more information see the documentation on [pkg.go.dev](https://pkg.go.dev/github.com/laktak/chkbit/v5).
 
 
 ## FAQ
