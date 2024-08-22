@@ -67,7 +67,12 @@ func setDate(filename string, r int) {
 	os.Chtimes(filename, date, date)
 }
 
-func genFile(dir string, a int) {
+func genFile(path string, size int) {
+	os.WriteFile(path, make([]byte, size), 0644)
+	setDate(path, size*size)
+}
+
+func genFiles(dir string, a int) {
 	os.MkdirAll(dir, 0755)
 	for i := 1; i <= 5; i++ {
 		size := a*i*wordIdx*100 + extIdx
@@ -78,9 +83,7 @@ func genFile(dir string, a int) {
 		}
 
 		file += "." + nextExt()
-		path := filepath.Join(dir, file)
-		os.WriteFile(path, make([]byte, size), 0644)
-		setDate(path, size*size)
+		genFile(filepath.Join(dir, file), size)
 	}
 }
 
@@ -89,11 +92,11 @@ func genDir(root string) {
 
 		for i := 1; i <= 5; i++ {
 			dir := filepath.Join(root, start, nextWord())
-			genFile(dir, 1)
+			genFiles(dir, 1)
 
 			if wordIdx%3 == 0 {
 				dir = filepath.Join(dir, nextWord())
-				genFile(dir, 1)
+				genFiles(dir, 1)
 			}
 		}
 	}
@@ -140,7 +143,7 @@ func TestRoot(t *testing.T) {
 	root := filepath.Join(testDir, "root")
 
 	// update index, no recourse
-	t.Run("Step1", func(t *testing.T) {
+	t.Run("no-recourse", func(t *testing.T) {
 		cmd := exec.Command(tool, "-umR", filepath.Join(root, "day/office"))
 		out, err := cmd.Output()
 		if err != nil {
@@ -155,7 +158,7 @@ func TestRoot(t *testing.T) {
 	})
 
 	// update remaining index from root
-	t.Run("Step2", func(t *testing.T) {
+	t.Run("update-remaining", func(t *testing.T) {
 		cmd := exec.Command(tool, "-um", root)
 		out, err := cmd.Output()
 		if err != nil {
@@ -170,7 +173,7 @@ func TestRoot(t *testing.T) {
 	})
 
 	// delete files, check for missing
-	t.Run("Step3", func(t *testing.T) {
+	t.Run("delete", func(t *testing.T) {
 		os.RemoveAll(filepath.Join(root, "thing/change"))
 		os.Remove(filepath.Join(root, "time/hour/minute/body-information.csv"))
 
@@ -185,7 +188,7 @@ func TestRoot(t *testing.T) {
 	})
 
 	// do not report missing without -m
-	t.Run("Step4", func(t *testing.T) {
+	t.Run("no-missing", func(t *testing.T) {
 		cmd := exec.Command(tool, root)
 		out, err := cmd.Output()
 		if err != nil {
@@ -197,7 +200,7 @@ func TestRoot(t *testing.T) {
 	})
 
 	// check for missing and update
-	t.Run("Step5", func(t *testing.T) {
+	t.Run("missing", func(t *testing.T) {
 		cmd := exec.Command(tool, "-um", root)
 		out, err := cmd.Output()
 		if err != nil {
@@ -209,16 +212,53 @@ func TestRoot(t *testing.T) {
 	})
 
 	// check again
-	t.Run("Step6", func(t *testing.T) {
+	t.Run("repeat", func(t *testing.T) {
 		for i := 0; i < 10; i++ {
-			cmd := exec.Command(tool, "-u", root)
+			cmd := exec.Command(tool, "-uv", root)
 			out, err := cmd.Output()
 			if err != nil {
 				t.Fatalf("failed with '%s'\n", err)
 			}
 			sout := string(out)
 			checkOut(t, sout, "Processed 289 files")
+			checkNotOut(t, sout, "removed")
+			checkNotOut(t, sout, "updated")
+			checkNotOut(t, sout, "added")
 		}
+	})
+
+	// add files only
+	t.Run("add-only", func(t *testing.T) {
+
+		genFiles(filepath.Join(root, "way/add"), 99)
+		genFile(filepath.Join(root, "time/add-file.txt"), 500)
+		// modify existing, will not be reported:
+		genFile(filepath.Join(root, "way/job/word-business.mp3"), 500)
+
+		cmd := exec.Command(tool, "-a", root)
+		out, err := cmd.Output()
+		if err != nil {
+			t.Fatalf("failed with '%s'\n", err)
+		}
+		sout := string(out)
+		checkOut(t, sout, "Processed 6 files")
+		checkOut(t, sout, "- 3 directories were updated")
+		checkOut(t, sout, "- 6 file hashes were added")
+		checkOut(t, sout, "- 0 file hashes were updated")
+	})
+
+	// update remaining
+	t.Run("update-remaining-add", func(t *testing.T) {
+		cmd := exec.Command(tool, "-u", root)
+		out, err := cmd.Output()
+		if err != nil {
+			t.Fatalf("failed with '%s'\n", err)
+		}
+		sout := string(out)
+		checkOut(t, sout, "Processed 295 files")
+		checkOut(t, sout, "- 1 directory was updated")
+		checkOut(t, sout, "- 0 file hashes were added")
+		checkOut(t, sout, "- 1 file hash was updated")
 	})
 }
 
@@ -246,7 +286,7 @@ func TestDMG(t *testing.T) {
 	t3, _ := time.Parse(time.RFC3339, "2022-02-01T13:00:00Z")
 
 	// create test and set the modified time"
-	t.Run("Step1", func(t *testing.T) {
+	t.Run("create", func(t *testing.T) {
 		os.WriteFile(testFile, []byte("foo1"), 0644)
 		os.Chtimes(testFile, t2, t2)
 
@@ -259,7 +299,7 @@ func TestDMG(t *testing.T) {
 	})
 
 	// update test with different content & old modified (expect 'old')"
-	t.Run("Step2", func(t *testing.T) {
+	t.Run("expect-old", func(t *testing.T) {
 		os.WriteFile(testFile, []byte("foo2"), 0644)
 		os.Chtimes(testFile, t1, t1)
 
@@ -272,7 +312,7 @@ func TestDMG(t *testing.T) {
 	})
 
 	// update test & new modified (expect 'upd')"
-	t.Run("Step3", func(t *testing.T) {
+	t.Run("expect-upd", func(t *testing.T) {
 		os.WriteFile(testFile, []byte("foo3"), 0644)
 		os.Chtimes(testFile, t3, t3)
 
@@ -285,7 +325,7 @@ func TestDMG(t *testing.T) {
 	})
 
 	// Now update test with the same modified to simulate damage (expect DMG)"
-	t.Run("Step4", func(t *testing.T) {
+	t.Run("expect-DMG", func(t *testing.T) {
 		os.WriteFile(testFile, []byte("foo4"), 0644)
 		os.Chtimes(testFile, t3, t3)
 

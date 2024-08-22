@@ -46,6 +46,7 @@ var cli struct {
 	Tips            bool     `short:"H" help:"Show tips."`
 	Check           bool     `short:"c" help:"check mode: chkbit will verify files in readonly mode (default mode)"`
 	Update          bool     `short:"u" help:"update mode: add and update indices"`
+	AddOnly         bool     `short:"a" help:"add mode: only add new files, do not check existing (quicker)"`
 	ShowIgnoredOnly bool     `short:"i" help:"show-ignored mode: only show ignored files"`
 	ShowMissing     bool     `short:"m" help:"show missing files/directories"`
 	Force           bool     `help:"force update of damaged items (advanced usage only)"`
@@ -158,9 +159,9 @@ func (m *Main) showStatus() {
 func (m *Main) process() bool {
 	// verify mode
 	var b01 = map[bool]int8{false: 0, true: 1}
-	if b01[cli.Check]+b01[cli.Update]+b01[cli.ShowIgnoredOnly] > 1 {
+	if b01[cli.Check]+b01[cli.Update]+b01[cli.AddOnly]+b01[cli.ShowIgnoredOnly] > 1 {
 		fmt.Println("Error: can only run one mode at a time!")
-		return false
+		os.Exit(1)
 	}
 
 	var err error
@@ -170,7 +171,8 @@ func (m *Main) process() bool {
 		return false
 	}
 	m.context.ForceUpdateDmg = cli.Force
-	m.context.UpdateIndex = cli.Update
+	m.context.UpdateIndex = cli.Update || cli.AddOnly
+	m.context.AddOnly = cli.AddOnly
 	m.context.ShowIgnoredOnly = cli.ShowIgnoredOnly
 	m.context.ShowMissing = cli.ShowMissing
 	m.context.SkipSymlinks = cli.SkipSymlinks

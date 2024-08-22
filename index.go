@@ -91,7 +91,7 @@ func (i *Index) calcHashes(ignore *Ignore) {
 		var info *idxInfo
 		algo := i.context.HashAlgo
 		if val, ok := i.cur[name]; ok {
-			// existing
+			// existing file
 			if val.LegacyHash != nil {
 				// convert from py1 to new format
 				val = idxInfo{
@@ -104,8 +104,13 @@ func (i *Index) calcHashes(ignore *Ignore) {
 			if val.Algo != nil {
 				algo = *val.Algo
 			}
-			info, err = i.calcFile(name, algo)
+			if i.context.AddOnly {
+				info = &val
+			} else {
+				info, err = i.calcFile(name, algo)
+			}
 		} else {
+			// new file
 			if i.readonly {
 				info = &idxInfo{Algo: &algo}
 			} else {

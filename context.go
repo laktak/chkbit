@@ -10,6 +10,7 @@ import (
 type Context struct {
 	NumWorkers         int
 	UpdateIndex        bool
+	AddOnly            bool
 	ShowIgnoredOnly    bool
 	ShowMissing        bool
 	ForceUpdateDmg     bool
@@ -71,7 +72,9 @@ func (context *Context) log(stat Status, message string) {
 		context.NumTotal++
 		context.NumNew++
 	case STATUS_OK:
-		context.NumTotal++
+		if !context.AddOnly {
+			context.NumTotal++
+		}
 	case STATUS_MISSING:
 		context.NumDel++
 		//case STATUS_PANIC:
