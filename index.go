@@ -5,7 +5,6 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
-	"reflect"
 	"slices"
 )
 
@@ -67,10 +66,6 @@ func newIndex(context *Context, path string, files []string, dirList []string, r
 
 func (i *Index) getIndexFilepath() string {
 	return filepath.Join(i.path, i.context.IndexFilename)
-}
-
-func (i *Index) setMod(value bool) {
-	i.modified = value
 }
 
 func (i *Index) logFilePanic(name string, message string) {
@@ -137,14 +132,14 @@ func (i *Index) checkFix(forceUpdateDmg bool) {
 	for name, b := range i.new {
 		if a, ok := i.cur[name]; !ok {
 			i.logFile(STATUS_NEW, name)
-			i.setMod(true)
+			i.modified = true
 		} else {
 			amod := int64(a.ModTime)
 			bmod := int64(b.ModTime)
 			if a.Hash != nil && b.Hash != nil && *a.Hash == *b.Hash {
 				i.logFile(STATUS_OK, name)
 				if amod != bmod {
-					i.setMod(true)
+					i.modified = true
 				}
 				continue
 			}
@@ -155,37 +150,45 @@ func (i *Index) checkFix(forceUpdateDmg bool) {
 					// keep DMG entry
 					i.new[name] = a
 				} else {
-					i.setMod(true)
+					i.modified = true
 				}
 			} else if amod < bmod {
 				i.logFile(STATUS_UPDATE, name)
-				i.setMod(true)
+				i.modified = true
 			} else if amod > bmod {
 				i.logFile(STATUS_UP_WARN_OLD, name)
-				i.setMod(true)
+				i.modified = true
 			}
 		}
 	}
-	if i.context.ShowMissing {
-		for name := range i.cur {
-			if _, ok := i.new[name]; !ok {
+	// track missing
+	for name := range i.cur {
+		if _, ok := i.new[name]; !ok {
+			i.modified = true
+			if i.context.ShowMissing {
 				i.logFile(STATUS_MISSING, name)
-				i.setMod(true)
 			}
 		}
-		// dirs
-		m := make(map[string]bool)
-		for _, n := range i.newDirList {
-			m[n] = true
-		}
-		for _, name := range i.curDirList {
-			if !m[name] {
-				i.logDir(STATUS_MISSING, name+"/")
-				i.setMod(true)
-			}
-		}
-
 	}
+
+	// dirs
+	m := make(map[string]bool)
+	for _, n := range i.newDirList {
+		m[n] = true
+	}
+	for _, name := range i.curDirList {
+		if !m[name] {
+			i.modified = true
+			if i.context.ShowMissing {
+				i.logDir(STATUS_MISSING, name+"/")
+			}
+		}
+	}
+	if len(i.newDirList) != len(i.curDirList) {
+		// added
+		i.modified = true
+	}
+
 }
 
 func (i *Index) calcFile(name string, a string) (*idxInfo, error) {
@@ -231,7 +234,7 @@ func (i *Index) save() (bool, error) {
 		if err != nil {
 			return false, err
 		}
-		i.setMod(false)
+		i.modified = false
 		return true, nil
 	} else {
 		return false, nil
@@ -241,13 +244,11 @@ func (i *Index) save() (bool, error) {
 func (i *Index) load() error {
 	if _, err := os.Stat(i.getIndexFilepath()); err != nil {
 		if os.IsNotExist(err) {
-			// todo
-			i.setMod(true)
 			return nil
 		}
 		return err
 	}
-	i.setMod(false)
+	i.modified = false
 	file, err := os.ReadFile(i.getIndexFilepath())
 	if err != nil {
 		return err
@@ -269,7 +270,7 @@ func (i *Index) load() error {
 		} else {
 		}
 		if data.IdxHash != hashMd5(text) {
-			i.setMod(true)
+			i.modified = true
 			i.logFile(STATUS_ERR_IDX, i.getIndexFilepath())
 		}
 	} else {
@@ -286,12 +287,12 @@ func (i *Index) load() error {
 			}
 		}
 	}
+
+	// dirs
 	if data.Dir != nil {
 		slices.Sort(data.Dir)
 		i.curDirList = data.Dir
-		if i.context.TrackDirectories && !reflect.DeepEqual(i.curDirList, i.newDirList) {
-			i.setMod(true)
-		}
 	}
+
 	return nil
 }

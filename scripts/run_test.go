@@ -115,6 +115,8 @@ func setupMiscFiles() {
 
 	genDir(root)
 
+	os.MkdirAll(filepath.Join(root, "day/car/empty"), 0755)
+
 	rootPeople := filepath.Join(root, "people")
 	testPeople := filepath.Join(testDir, "people")
 
