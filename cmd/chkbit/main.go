@@ -49,6 +49,7 @@ var cli struct {
 	AddOnly         bool     `short:"a" help:"add mode: only add new files, do not check existing (quicker)"`
 	ShowIgnoredOnly bool     `short:"i" help:"show-ignored mode: only show ignored files"`
 	ShowMissing     bool     `short:"m" help:"show missing files/directories"`
+	IncludeDot      bool     `short:"d" help:"include dot files"`
 	Force           bool     `help:"force update of damaged items (advanced usage only)"`
 	SkipSymlinks    bool     `short:"S" help:"do not follow symlinks"`
 	NoRecurse       bool     `short:"R" help:"do not recurse into subdirectories"`
@@ -175,6 +176,7 @@ func (m *Main) process() bool {
 	m.context.AddOnly = cli.AddOnly
 	m.context.ShowIgnoredOnly = cli.ShowIgnoredOnly
 	m.context.ShowMissing = cli.ShowMissing
+	m.context.IncludeDot = cli.IncludeDot
 	m.context.SkipSymlinks = cli.SkipSymlinks
 	m.context.SkipSubdirectories = cli.NoRecurse
 	m.context.TrackDirectories = !cli.NoDirInIndex

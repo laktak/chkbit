@@ -13,6 +13,7 @@ type Context struct {
 	AddOnly            bool
 	ShowIgnoredOnly    bool
 	ShowMissing        bool
+	IncludeDot         bool
 	ForceUpdateDmg     bool
 	HashAlgo           string
 	TrackDirectories   bool
@@ -168,12 +169,6 @@ func (context *Context) scanDir(root string, parentIgnore *Ignore) {
 
 	for _, file := range files {
 		path := filepath.Join(root, file.Name())
-		if file.Name()[0] == '.' {
-			if context.ShowIgnoredOnly && !context.isChkbitFile(file.Name()) {
-				context.log(STATUS_IGNORE, path)
-			}
-			continue
-		}
 		if isDir(file, path) {
 			if !ignore.shouldIgnore(file.Name()) {
 				dirList = append(dirList, file.Name())

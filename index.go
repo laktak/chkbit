@@ -82,8 +82,10 @@ func (i *Index) logDir(stat Status, name string) {
 
 func (i *Index) calcHashes(ignore *Ignore) {
 	for _, name := range i.files {
-		if ignore != nil && ignore.shouldIgnore(name) {
-			i.logFile(STATUS_IGNORE, name)
+		if ignore.shouldIgnore(name) {
+			if !ignore.context.isChkbitFile(name) {
+				i.logFile(STATUS_IGNORE, name)
+			}
 			continue
 		}
 

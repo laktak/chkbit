@@ -24,7 +24,7 @@ func GetIgnore(context *Context, path string, parentIgnore *Ignore) (*Ignore, er
 	}
 	err := ignore.loadIgnore()
 	if err != nil {
-		return nil, err
+		return ignore, err
 	}
 	return ignore, nil
 }
@@ -58,6 +58,12 @@ func (ignore *Ignore) loadIgnore() error {
 }
 
 func (ignore *Ignore) shouldIgnore(name string) bool {
+	if ignore.context.isChkbitFile(name) {
+		return true
+	}
+	if !ignore.context.IncludeDot && name[0] == '.' {
+		return true
+	}
 	return ignore.shouldIgnore2(name, "")
 }
 

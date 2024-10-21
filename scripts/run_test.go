@@ -261,8 +261,8 @@ func TestRoot(t *testing.T) {
 		checkOut(t, sout, "- 1 file hash was updated")
 	})
 
-	// ignore hidden
-	t.Run("ignore-hidden", func(t *testing.T) {
+	// ignore dot
+	t.Run("ignore-dot", func(t *testing.T) {
 
 		genFiles(filepath.Join(root, "way/.hidden"), 99)
 		genFile(filepath.Join(root, "time/.ignored"), 999)
@@ -274,6 +274,21 @@ func TestRoot(t *testing.T) {
 		}
 		sout := string(out)
 		checkOut(t, sout, "Processed 295 files")
+	})
+
+	// include dot
+	t.Run("include-dot", func(t *testing.T) {
+
+		cmd := exec.Command(tool, "-u", "-d", root)
+		out, err := cmd.Output()
+		if err != nil {
+			t.Fatalf("failed with '%s'\n", err)
+		}
+		sout := string(out)
+		checkOut(t, sout, "Processed 301 files")
+		checkOut(t, sout, "- 3 directories were updated")
+		checkOut(t, sout, "- 6 file hashes were added")
+		checkOut(t, sout, "- 0 file hashes were updated")
 	})
 }
 
