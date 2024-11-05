@@ -89,6 +89,7 @@ Flags:
   -a, --add-only                       add mode: only add new files, do not check existing (quicker)
   -i, --show-ignored-only              show-ignored mode: only show ignored files
   -m, --show-missing                   show missing files/directories
+  -d, --include-dot                    include dot files
       --force                          force update of damaged items (advanced usage only)
   -S, --skip-symlinks                  do not follow symlinks
   -R, --no-recurse                     do not recurse into subdirectories
@@ -176,8 +177,12 @@ You would typically run it only on *content* that you keep for a long time (e.g.
 
 The advantage of the .chkbit files is that
 
-- when you move a directory the index moves with it
-- when you make a backup the index is also backed up
+- when you make a backup the index is also backed up, a central index would need to be backed up separately
+- if the index is just a play file it can't be damaged as easily
+- if it is damaged, only one directory is affected
+- if you split up your files over backups, the relevant index is alwys included
+- when updating an index, only the index in one directory is affected, reducing the risk of errors
+- also useful, when you move a directory the index moves with it
 
 The disadvantage is obviously that you get hidden `.chkbit` files in your content folders.
 
