@@ -35,6 +35,8 @@ You can download the official chkbit binaries from the releases page and place i
 
 - https://github.com/laktak/chkbit/releases
 
+Prereleased versions can be found directly on the [Git Action](https://github.com/laktak/chkbit/actions). Click on the latest action and look for `prerelease-artifacts` at the bottom.
+
 ### Homebrew (macOS and Linux)
 
 For macOS and Linux it can also be installed via [Homebrew](https://formulae.brew.sh/formula/chkbit):
