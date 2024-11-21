@@ -88,7 +88,7 @@ Flags:
   -H, --tips                           Show tips.
   -c, --check                          check mode: chkbit will verify files in readonly mode (default mode)
   -u, --update                         update mode: add and update indices
-  -a, --add-only                       add mode: only add new files, do not check existing (quicker)
+  -a, --add-only                       add mode: only add new and modified files, do not check existing (quicker)
   -i, --show-ignored-only              show-ignored mode: only show ignored files
   -m, --show-missing                   show missing files/directories
   -d, --include-dot                    include dot files

@@ -64,6 +64,11 @@ func newIndex(context *Context, path string, files []string, dirList []string, r
 	}
 }
 
+func getMtime(path string) int64 {
+	info, _ := os.Stat(path)
+	return int64(info.ModTime().UnixNano() / 1e6)
+}
+
 func (i *Index) getIndexFilepath() string {
 	return filepath.Join(i.path, i.context.IndexFilename)
 }
@@ -106,7 +111,7 @@ func (i *Index) calcHashes(ignore *Ignore) {
 			if val.Algo != nil {
 				algo = *val.Algo
 			}
-			if i.context.AddOnly {
+			if i.context.AddOnly && !i.mtimeChanged(name, val) {
 				info = &val
 			} else {
 				info, err = i.calcFile(name, algo)
@@ -195,13 +200,16 @@ func (i *Index) checkFix(forceUpdateDmg bool) {
 		// added
 		i.modified = true
 	}
+}
 
+func (i *Index) mtimeChanged(name string, ii idxInfo) bool {
+	mtime := getMtime(filepath.Join(i.path, name))
+	return ii.ModTime != mtime
 }
 
 func (i *Index) calcFile(name string, a string) (*idxInfo, error) {
 	path := filepath.Join(i.path, name)
-	info, _ := os.Stat(path)
-	mtime := int64(info.ModTime().UnixNano() / 1e6)
+	mtime := getMtime(path)
 	h, err := Hashfile(path, a, i.context.perfMonBytes)
 	if err != nil {
 		return nil, err

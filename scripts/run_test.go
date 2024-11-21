@@ -232,8 +232,6 @@ func TestRoot(t *testing.T) {
 
 		genFiles(filepath.Join(root, "way/add"), 99)
 		genFile(filepath.Join(root, "time/add-file.txt"), 500)
-		// modify existing, will not be reported:
-		genFile(filepath.Join(root, "way/job/word-business.mp3"), 500)
 
 		cmd := exec.Command(tool, "-a", root)
 		out, err := cmd.Output()
@@ -247,6 +245,25 @@ func TestRoot(t *testing.T) {
 		checkOut(t, sout, "- 0 file hashes were updated")
 	})
 
+	// add modified files only
+	t.Run("add-only-mod", func(t *testing.T) {
+
+		// modify existing
+		genFile(filepath.Join(root, "way/job/word-business.mp3"), 500)
+
+		cmd := exec.Command(tool, "-a", root)
+		out, err := cmd.Output()
+		if err != nil {
+			t.Fatalf("failed with '%s'\n", err)
+		}
+		sout := string(out)
+		checkOut(t, sout, "old /tmp/chkbit/root/way/job/word-business.mp3")
+		checkOut(t, sout, "Processed 1 file")
+		checkOut(t, sout, "- 1 directory was updated")
+		checkOut(t, sout, "- 0 file hashes were added")
+		checkOut(t, sout, "- 1 file hash was updated")
+	})
+
 	// update remaining
 	t.Run("update-remaining-add", func(t *testing.T) {
 		cmd := exec.Command(tool, "-u", root)
@@ -256,9 +273,6 @@ func TestRoot(t *testing.T) {
 		}
 		sout := string(out)
 		checkOut(t, sout, "Processed 295 files")
-		checkOut(t, sout, "- 1 directory was updated")
-		checkOut(t, sout, "- 0 file hashes were added")
-		checkOut(t, sout, "- 1 file hash was updated")
 	})
 
 	// ignore dot

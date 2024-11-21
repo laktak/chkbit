@@ -46,7 +46,7 @@ var cli struct {
 	Tips            bool     `short:"H" help:"Show tips."`
 	Check           bool     `short:"c" help:"check mode: chkbit will verify files in readonly mode (default mode)"`
 	Update          bool     `short:"u" help:"update mode: add and update indices"`
-	AddOnly         bool     `short:"a" help:"add mode: only add new files, do not check existing (quicker)"`
+	AddOnly         bool     `short:"a" help:"add mode: only add new and modified files, do not check existing (quicker)"`
 	ShowIgnoredOnly bool     `short:"i" help:"show-ignored mode: only show ignored files"`
 	ShowMissing     bool     `short:"m" help:"show missing files/directories"`
 	IncludeDot      bool     `short:"d" help:"include dot files"`
