@@ -7,10 +7,15 @@ var headerHelp = `Checks the data integrity of your files.
 
 var helpTips = `
 .chkbitignore rules:
-  each line should contain exactly one name
-  you may use Unix shell-style wildcards (see README)
-  lines starting with '#' are skipped
-  lines starting with '/' are only applied to the current directory
+- each line should contain exactly one name
+- you may use Unix shell-style wildcards
+  - *       matches everything except /
+  - ?       matches any single character except /
+  - [seq]   matches any character/range in seq
+  - [^seq]  matches any character/range not in seq
+  - \\      escape to match the following character
+- lines starting with '#' are skipped
+- lines starting with '/' are only applied to the current directory
 
 Status codes:
   DMG: error, data damage detected

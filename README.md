@@ -84,38 +84,50 @@ Arguments:
   [<paths> ...]    directories to check
 
 Flags:
-  -h, --help                           Show context-sensitive help.
-  -H, --tips                           Show tips.
-  -c, --check                          check mode: chkbit will verify files in readonly mode (default mode)
-  -u, --update                         update mode: add and update indices
-  -a, --add-only                       add mode: only add new and modified files, do not check existing (quicker)
-  -i, --show-ignored-only              show-ignored mode: only show ignored files
-  -m, --show-missing                   show missing files/directories
-  -d, --include-dot                    include dot files
-      --force                          force update of damaged items (advanced usage only)
-  -S, --skip-symlinks                  do not follow symlinks
-  -R, --no-recurse                     do not recurse into subdirectories
-  -D, --no-dir-in-index                do not track directories in the index
-  -l, --log-file=STRING                write to a logfile if specified
-      --log-verbose                    verbose logging
-      --algo="blake3"                  hash algorithm: md5, sha512, blake3 (default: blake3)
-      --index-name=".chkbit"           filename where chkbit stores its hashes, needs to start with '.' (default: .chkbit)
-      --ignore-name=".chkbitignore"    filename that chkbit reads its ignore list from, needs to start with '.' (default: .chkbitignore)
-  -w, --workers=5                      number of workers to use (default: 5)
-      --plain                          show plain status instead of being fancy
-  -q, --quiet                          quiet, don't show progress/information
-  -v, --verbose                        verbose output
-  -V, --version                        show version information
+  -h, --help                    Show context-sensitive help.
+  -H, --tips                    Show tips.
+  -c, --check                   check mode: chkbit will verify files in readonly
+                                mode (default mode)
+  -u, --update                  update mode: add and update indices
+  -a, --add-only                add mode: only add new and modified files,
+                                do not check existing (quicker)
+  -i, --show-ignored-only       show-ignored mode: only show ignored files
+  -m, --show-missing            show missing files/directories
+  -d, --include-dot             include dot files
+      --force                   force update of damaged items (advanced usage
+                                only)
+  -S, --skip-symlinks           do not follow symlinks
+  -R, --no-recurse              do not recurse into subdirectories
+  -D, --no-dir-in-index         do not track directories in the index
+  -l, --log-file=STRING         write to a logfile if specified
+      --log-verbose             verbose logging
+      --algo="blake3"           hash algorithm: md5, sha512, blake3 (default:
+                                blake3)
+      --index-name=".chkbit"    filename where chkbit stores its hashes,
+                                needs to start with '.' (default: .chkbit)
+      --ignore-name=".chkbitignore"
+                                filename that chkbit reads its ignore list from,
+                                needs to start with '.' (default: .chkbitignore)
+  -w, --workers=5               number of workers to use (default: 5)
+      --plain                   show plain status instead of being fancy
+  -q, --quiet                   quiet, don't show progress/information
+  -v, --verbose                 verbose output
+  -V, --version                 show version information
 ```
 
 ```
 $ chkbit -H
 
 .chkbitignore rules:
-  each line should contain exactly one name
-  you may use Unix shell-style wildcards (see README)
-  lines starting with '#' are skipped
-  lines starting with '/' are only applied to the current directory
+- each line should contain exactly one name
+- you may use Unix shell-style wildcards
+  - *       matches everything except /
+  - ?       matches any single character except /
+  - [seq]   matches any character/range in seq
+  - [^seq]  matches any character/range not in seq
+  - \\      escape to match the following character
+- lines starting with '#' are skipped
+- lines starting with '/' are only applied to the current directory
 
 Status codes:
   DMG: error, data damage detected
@@ -148,14 +160,15 @@ Add a `.chkbitignore` file containing the names of the files/directories you wis
 
 - each line should contain exactly one name
 - you may use Unix shell-style wildcards
-  - `*` matches everything
-  - `?`  matches any single character
-  - `[seq]` matches any character in seq
-  - `[!seq]` matches any character not in seq
+  - `*` matches everything except `/`
+  - `?`  matches any single character except `/`
+  - `[seq]` matches any character/range in seq
+  - `[^seq]` matches any character/range not in seq
+  - `\\` escape to match the following character
 - lines starting with `#` are skipped
 - lines starting with `/` are only applied to the current directory
 - you can use `path/sub/name` to ignore a file/directory in a sub path
-- hidden files (starting with a `.`) are ignored by default
+- hidden files (starting with a `.`) are ignored by default unless you use the `-d` option
 
 
 ## chkbit as a Go module
