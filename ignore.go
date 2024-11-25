@@ -87,7 +87,7 @@ func (ignore *Ignore) shouldIgnore2(name string, fullname string) bool {
 	}
 	if ignore.parentIgnore != nil {
 		if fullname != "" {
-			return ignore.parentIgnore.shouldIgnore2(fullname, ignore.name+fullname)
+			return ignore.parentIgnore.shouldIgnore2(name, ignore.name+fullname)
 		} else {
 			return ignore.parentIgnore.shouldIgnore2(name, ignore.name+name)
 		}
