@@ -246,7 +246,7 @@ func (i *Index) save() (bool, error) {
 			return false, err
 		}
 
-		// try to preserve the directory mod time but ignore of unsupported
+		// try to preserve the directory mod time but ignore if unsupported
 		dirStat, dirErr := os.Stat(i.path)
 		err = os.WriteFile(i.getIndexFilepath(), file, 0644)
 		if err != nil {

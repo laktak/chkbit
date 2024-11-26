@@ -287,7 +287,7 @@ func (m *Main) run() {
 
 	kong.Parse(&cli,
 		kong.Name("chkbit"),
-		kong.Description(""),
+		kong.Description(headerHelp),
 		kong.UsageOnError(),
 	)
 
