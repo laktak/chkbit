@@ -245,11 +245,18 @@ func (i *Index) save() (bool, error) {
 		if err != nil {
 			return false, err
 		}
+
+		// try to preserve the directory mod time but ignore of unsupported
+		dirStat, dirErr := os.Stat(i.path)
 		err = os.WriteFile(i.getIndexFilepath(), file, 0644)
 		if err != nil {
 			return false, err
 		}
+		if dirErr == nil {
+			os.Chtimes(i.path, dirStat.ModTime(), dirStat.ModTime())
+		}
 		i.modified = false
+
 		return true, nil
 	} else {
 		return false, nil
