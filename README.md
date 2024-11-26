@@ -83,6 +83,12 @@ Run `chkbit PATH` to verify only.
 ```
 Usage: chkbit [<paths> ...] [flags]
 
+Ensures the safety of your files by verifying that their data integrity remains
+intact over time, especially during transfers and backups.
+
+    For help tips run "chkbit -H" or go to
+    https://github.com/laktak/chkbit
+
 Arguments:
   [<paths> ...]    directories to check
 
@@ -111,6 +117,7 @@ Flags:
       --ignore-name=".chkbitignore"
                                 filename that chkbit reads its ignore list from,
                                 needs to start with '.' (default: .chkbitignore)
+      --index-db                use a index database instead of index files
   -w, --workers=5               number of workers to use (default: 5)
       --plain                   show plain status instead of being fancy
   -q, --quiet                   quiet, don't show progress/information

@@ -59,6 +59,7 @@ var cli struct {
 	Algo            string   `default:"blake3" help:"hash algorithm: md5, sha512, blake3 (default: blake3)"`
 	IndexName       string   `default:".chkbit" help:"filename where chkbit stores its hashes, needs to start with '.' (default: .chkbit)"`
 	IgnoreName      string   `default:".chkbitignore" help:"filename that chkbit reads its ignore list from, needs to start with '.' (default: .chkbitignore)"`
+	IndexDb         bool     `help:"use a index database instead of index files"`
 	Workers         int      `short:"w" default:"5" help:"number of workers to use (default: 5)"`
 	Plain           bool     `help:"show plain status instead of being fancy"`
 	Quiet           bool     `short:"q" help:"quiet, don't show progress/information"`
@@ -180,6 +181,7 @@ func (m *Main) process() bool {
 	m.context.SkipSymlinks = cli.SkipSymlinks
 	m.context.SkipSubdirectories = cli.NoRecurse
 	m.context.TrackDirectories = !cli.NoDirInIndex
+	m.context.UseIndexDb(cli.IndexDb)
 
 	var wg sync.WaitGroup
 	wg.Add(1)

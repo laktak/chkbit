@@ -21,10 +21,13 @@ type Context struct {
 	SkipSubdirectories bool
 	IndexFilename      string
 	IgnoreFilename     string
-	WorkQueue          chan *WorkItem
-	LogQueue           chan *LogEvent
-	PerfQueue          chan *PerfEvent
-	wg                 sync.WaitGroup
+
+	WorkQueue chan *WorkItem
+	LogQueue  chan *LogEvent
+	PerfQueue chan *PerfEvent
+
+	wg sync.WaitGroup
+	db *indexDb
 
 	mutex     sync.Mutex
 	NumTotal  int
@@ -52,7 +55,12 @@ func NewContext(numWorkers int, hashAlgo string, indexFilename string, ignoreFil
 		WorkQueue:      make(chan *WorkItem, numWorkers*10),
 		LogQueue:       make(chan *LogEvent, numWorkers*100),
 		PerfQueue:      make(chan *PerfEvent, numWorkers*10),
+		db:             &indexDb{},
 	}, nil
+}
+
+func (context *Context) UseIndexDb(enable bool) {
+	context.db.useSql = enable
 }
 
 func (context *Context) log(stat Status, message string) {
@@ -116,6 +124,13 @@ func (context *Context) Start(pathList []string) {
 	context.NumNew = 0
 	context.NumUpd = 0
 	context.NumDel = 0
+	err := context.db.Open()
+	if err != nil {
+		context.logErr(context.db.GetDbPath(), err)
+		context.LogQueue <- nil
+		return
+	}
+	defer context.db.Close()
 
 	var wg sync.WaitGroup
 	wg.Add(context.NumWorkers)

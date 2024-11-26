@@ -10,6 +10,7 @@ require (
 
 require (
 	github.com/klauspost/cpuid/v2 v2.0.9 // indirect
+	github.com/mattn/go-sqlite3 v1.14.24 // indirect
 	golang.org/x/sys v0.27.0 // indirect
 	golang.org/x/term v0.26.0 // indirect
 )

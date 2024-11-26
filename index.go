@@ -246,14 +246,9 @@ func (i *Index) save() (bool, error) {
 			return false, err
 		}
 
-		// try to preserve the directory mod time but ignore if unsupported
-		dirStat, dirErr := os.Stat(i.path)
-		err = os.WriteFile(i.getIndexFilepath(), file, 0644)
+		err = i.context.db.Save(i.getIndexFilepath(), file)
 		if err != nil {
 			return false, err
-		}
-		if dirErr == nil {
-			os.Chtimes(i.path, dirStat.ModTime(), dirStat.ModTime())
 		}
 		i.modified = false
 
@@ -264,17 +259,11 @@ func (i *Index) save() (bool, error) {
 }
 
 func (i *Index) load() error {
-	if _, err := os.Stat(i.getIndexFilepath()); err != nil {
-		if os.IsNotExist(err) {
-			return nil
-		}
+	file, err := i.context.db.Load(i.getIndexFilepath())
+	if file == nil || err != nil {
 		return err
 	}
 	i.modified = false
-	file, err := os.ReadFile(i.getIndexFilepath())
-	if err != nil {
-		return err
-	}
 	var data indexFile
 	err = json.Unmarshal(file, &data)
 	if err != nil {
