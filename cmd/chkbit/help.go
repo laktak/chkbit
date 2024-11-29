@@ -28,4 +28,10 @@ Status codes:
   del: file/directory removed
   ign: ignored (see .chkbitignore)
   EXC: exception/panic
+
+Configuration file (json):
+- location <config-file>
+- key names are the option names with '-' replaced by '_'
+- for example --include-dot is written as:
+  { "include_dot": true }
 `

@@ -5,6 +5,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -44,25 +45,25 @@ var (
 var cli struct {
 	Paths           []string `arg:"" optional:"" name:"paths" help:"directories to check"`
 	Tips            bool     `short:"H" help:"Show tips."`
-	Check           bool     `short:"c" help:"check mode: chkbit will verify files in readonly mode (default mode)"`
-	Update          bool     `short:"u" help:"update mode: add and update indices"`
-	AddOnly         bool     `short:"a" help:"add mode: only add new and modified files, do not check existing (quicker)"`
-	ShowIgnoredOnly bool     `short:"i" help:"show-ignored mode: only show ignored files"`
-	ShowMissing     bool     `short:"m" help:"show missing files/directories"`
-	IncludeDot      bool     `short:"d" help:"include dot files"`
+	Check           bool     `short:"c" help:"check mode: chkbit will verify files in readonly mode (default mode)" xor:"mode" group:"mode"`
+	Update          bool     `short:"u" help:"update mode: add and update indices" xor:"mode" group:"mode"`
+	AddOnly         bool     `short:"a" help:"add mode: only add new and modified files, do not check existing (quicker)" xor:"mode" group:"mode"`
+	ShowIgnoredOnly bool     `short:"i" help:"show-ignored mode: only show ignored files" xor:"mode" group:"mode"`
+	ShowMissing     bool     `short:"m" help:"show missing files/directories" negatable:""`
+	IncludeDot      bool     `short:"d" help:"include dot files" negatable:""`
+	SkipSymlinks    bool     `short:"S" help:"do not follow symlinks" negatable:""`
+	NoRecurse       bool     `short:"R" help:"do not recurse into subdirectories" negatable:""`
+	NoDirInIndex    bool     `short:"D" help:"do not track directories in the index" negatable:""`
 	Force           bool     `help:"force update of damaged items (advanced usage only)"`
-	SkipSymlinks    bool     `short:"S" help:"do not follow symlinks"`
-	NoRecurse       bool     `short:"R" help:"do not recurse into subdirectories"`
-	NoDirInIndex    bool     `short:"D" help:"do not track directories in the index"`
 	LogFile         string   `short:"l" help:"write to a logfile if specified"`
-	LogVerbose      bool     `help:"verbose logging"`
+	LogVerbose      bool     `help:"verbose logging" negatable:""`
 	Algo            string   `default:"blake3" help:"hash algorithm: md5, sha512, blake3 (default: blake3)"`
 	IndexName       string   `default:".chkbit" help:"filename where chkbit stores its hashes, needs to start with '.' (default: .chkbit)"`
 	IgnoreName      string   `default:".chkbitignore" help:"filename that chkbit reads its ignore list from, needs to start with '.' (default: .chkbitignore)"`
 	Workers         int      `short:"w" default:"5" help:"number of workers to use (default: 5)"`
-	Plain           bool     `help:"show plain status instead of being fancy"`
-	Quiet           bool     `short:"q" help:"quiet, don't show progress/information"`
-	Verbose         bool     `short:"v" help:"verbose output"`
+	Plain           bool     `help:"show plain status instead of being fancy" negatable:""`
+	Quiet           bool     `short:"q" help:"quiet, don't show progress/information" negatable:""`
+	Verbose         bool     `short:"v" help:"verbose output" negatable:""`
 	Version         bool     `short:"V" help:"show version information"`
 }
 
@@ -285,14 +286,21 @@ func (m *Main) run() {
 		os.Args = append(os.Args, "--help")
 	}
 
+	var configPath = "chkbit-config.json"
+	configRoot, err := os.UserConfigDir()
+	if err == nil {
+		configPath = filepath.Join(configRoot, "chkbit/config.json")
+	}
+
 	kong.Parse(&cli,
 		kong.Name("chkbit"),
 		kong.Description(headerHelp),
 		kong.UsageOnError(),
+		kong.Configuration(kong.JSON, configPath),
 	)
 
 	if cli.Tips {
-		fmt.Println(helpTips)
+		fmt.Println(strings.ReplaceAll(helpTips, "<config-file>", configPath))
 		os.Exit(0)
 	}
 
