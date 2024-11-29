@@ -22,6 +22,8 @@ type Context struct {
 	IndexFilename      string
 	IgnoreFilename     string
 
+	UseSingleDb bool
+
 	WorkQueue chan *WorkItem
 	LogQueue  chan *LogEvent
 	PerfQueue chan *PerfEvent
@@ -57,10 +59,6 @@ func NewContext(numWorkers int, hashAlgo string, indexFilename string, ignoreFil
 		PerfQueue:      make(chan *PerfEvent, numWorkers*10),
 		db:             &indexDb{},
 	}, nil
-}
-
-func (context *Context) UseIndexDb(enable bool) {
-	context.db.useSql = enable
 }
 
 func (context *Context) log(stat Status, message string) {
@@ -124,7 +122,7 @@ func (context *Context) Start(pathList []string) {
 	context.NumNew = 0
 	context.NumUpd = 0
 	context.NumDel = 0
-	err := context.db.Open()
+	err := context.db.Open(context.UseSingleDb, !context.UpdateIndex)
 	if err != nil {
 		context.logErr(context.db.GetDbPath(), err)
 		context.LogQueue <- nil

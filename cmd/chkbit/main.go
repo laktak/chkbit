@@ -181,7 +181,7 @@ func (m *Main) process() bool {
 	m.context.SkipSymlinks = cli.SkipSymlinks
 	m.context.SkipSubdirectories = cli.NoRecurse
 	m.context.TrackDirectories = !cli.NoDirInIndex
-	m.context.UseIndexDb(cli.IndexDb)
+	m.context.UseSingleDb = cli.IndexDb
 
 	var wg sync.WaitGroup
 	wg.Add(1)
@@ -327,10 +327,29 @@ func (m *Main) run() {
 	}
 
 	if len(cli.Paths) > 0 {
-		m.log("chkbit " + strings.Join(cli.Paths, ", "))
-		if m.process() && !m.context.ShowIgnoredOnly {
+		if cli.IndexDb {
+			if len(cli.Paths) > 1 {
+				fmt.Println("Only one path allowed with --index-db switch")
+				os.Exit(1)
+			}
+
+			mainPath := cli.Paths[0]
+			err := os.Chdir(mainPath)
+			if err != nil {
+				fmt.Println(err)
+				os.Exit(1)
+			}
+			cli.Paths[0] = "."
+			m.log("chkbit at " + mainPath)
+
+		} else {
+			m.log("chkbit " + strings.Join(cli.Paths, ", "))
+		}
+
+		if m.process() && !cli.ShowIgnoredOnly {
 			m.printResult()
 		}
+
 	} else {
 		fmt.Println("specify a path to check, see -h")
 	}

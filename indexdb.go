@@ -1,41 +1,51 @@
 package chkbit
 
 import (
-	"database/sql"
 	"os"
 	"path/filepath"
 
-	_ "github.com/mattn/go-sqlite3"
+	bolt "go.etcd.io/bbolt"
 )
 
 type indexDb struct {
-	useSql bool
-	conn   *sql.DB
+	useSingleDb bool
+	conn        *bolt.DB
 }
 
 func (db *indexDb) GetDbPath() string {
 	return ".chkbitdb"
 }
 
-func (db *indexDb) Open() error {
+func (db *indexDb) Open(useSingleDb, readOnly bool) error {
 	var err error
-	if db.useSql {
-		db.conn, err = sql.Open("sqlite3", db.GetDbPath())
-		if err != nil {
-			return err
+	db.useSingleDb = useSingleDb
+	if useSingleDb {
+		opt := &bolt.Options{
+			ReadOnly:     readOnly,
+			Timeout:      0,
+			NoGrowSync:   false,
+			FreelistType: bolt.FreelistArrayType,
 		}
-
-		create := `create table if not exists data (
-			key text primary key,
-			value blob
-		);`
-		_, err = db.conn.Exec(create)
+		if readOnly {
+			_, err := os.Stat(db.GetDbPath())
+			if os.IsNotExist(err) {
+				return nil
+			}
+		}
+		// todo: write to new db
+		db.conn, err = bolt.Open(db.GetDbPath(), 0600, opt)
+		if err == nil && !readOnly {
+			err = db.conn.Update(func(tx *bolt.Tx) error {
+				_, err := tx.CreateBucketIfNotExists([]byte("data"))
+				return err
+			})
+		}
 	}
 	return err
 }
 
 func (db *indexDb) Close() {
-	if db.useSql {
+	if db.useSingleDb && db.conn != nil {
 		db.conn.Close()
 	}
 }
@@ -43,12 +53,16 @@ func (db *indexDb) Close() {
 func (db *indexDb) Load(indexPath string) ([]byte, error) {
 	var err error
 	var value []byte
-	if db.useSql {
-		err = db.conn.QueryRow("select value from data where key = ?", indexPath).Scan(&value)
-		if err == sql.ErrNoRows {
+	if db.useSingleDb {
+		if db.conn == nil {
+			// readOnly without db
 			return nil, nil
 		}
-
+		err = db.conn.View(func(tx *bolt.Tx) error {
+			b := tx.Bucket([]byte("data"))
+			value = b.Get([]byte(indexPath))
+			return nil
+		})
 	} else {
 		if _, err = os.Stat(indexPath); err != nil {
 			if os.IsNotExist(err) {
@@ -63,9 +77,11 @@ func (db *indexDb) Load(indexPath string) ([]byte, error) {
 
 func (db *indexDb) Save(indexPath string, value []byte) error {
 	var err error
-	if db.useSql {
-		insert := "insert or replace into data (key, value) values (?, ?)"
-		_, err = db.conn.Exec(insert, indexPath, value)
+	if db.useSingleDb {
+		err = db.conn.Update(func(tx *bolt.Tx) error {
+			b := tx.Bucket([]byte("data"))
+			return b.Put([]byte(indexPath), value)
+		})
 	} else {
 		// try to preserve the directory mod time but ignore if unsupported
 		dirPath := filepath.Dir(indexPath)

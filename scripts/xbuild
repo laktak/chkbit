@@ -16,7 +16,7 @@ rm -f dist/*
 build() {
     echo "- $1-$2"
     rm -f dist/chkbit
-    GOOS="$1" GOARCH="$2" go build -o dist -ldflags="-X main.appVersion=$version" ./cmd/chkbit
+    CGO_ENABLED=0 GOOS="$1" GOARCH="$2" go build -o dist -ldflags="-X main.appVersion=$version" ./cmd/chkbit
 
     pushd dist
 

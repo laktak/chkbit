@@ -6,4 +6,4 @@ cd $script_dir/..
 
 version=$(git describe --tags --always)
 echo build $version
-go build -ldflags="-X main.appVersion=$version" ./cmd/chkbit
+CGO_ENABLED=0 go build -ldflags="-X main.appVersion=$version" ./cmd/chkbit
