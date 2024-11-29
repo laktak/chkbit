@@ -205,7 +205,9 @@ For more information see the documentation on [pkg.go.dev](https://pkg.go.dev/gi
 
 You would typically run it only on *content* that you keep for a long time (e.g. your pictures, music, videos).
 
-### Why is chkbit placing the index in `.chkbit` files (vs a database)?
+### `.chkbit` files vs `.chkbitdb` database
+
+Note: a `.chkbitdb` database approach is being worked on in [#22](https://github.com/laktak/chkbit/issues/22) if you want to help with testing.
 
 The advantage of the .chkbit files is that
 
