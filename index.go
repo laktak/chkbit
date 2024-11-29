@@ -225,7 +225,7 @@ func (i *Index) calcFile(name string, a string) (*idxInfo, error) {
 func (i *Index) save() (bool, error) {
 	if i.modified {
 		if i.readonly {
-			return false, errors.New("Error trying to save a readonly index.")
+			return false, errors.New("error trying to save a readonly index")
 		}
 
 		text, err := json.Marshal(i.new)
