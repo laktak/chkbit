@@ -4,8 +4,17 @@ set -e
 script_dir=$(dirname "$(realpath "$0")")
 cd $script_dir/..
 
-# prep
+echo "# test module"
+go test -v .
+echo "# test util"
+go test -v ./cmd/chkbit/util -count=1
+
+echo "# prep files"
 $script_dir/build
 
-go test -v ./cmd/chkbit/util -count=1
+echo "# test files"
+if [[ -f ~/.config/chkbit/config.json ]]; then
+    echo 'error: unable to test with config file preset'
+    exit 1
+fi
 go test -v ./scripts -count=1

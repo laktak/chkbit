@@ -95,21 +95,15 @@ Arguments:
 Flags:
   -h, --help                    Show context-sensitive help.
   -H, --tips                    Show tips.
-  -c, --check                   check mode: chkbit will verify files in readonly
-                                mode (default mode)
-  -u, --update                  update mode: add and update indices
-  -a, --add-only                add mode: only add new and modified files,
-                                do not check existing (quicker)
-  -i, --show-ignored-only       show-ignored mode: only show ignored files
-  -m, --show-missing            show missing files/directories
-  -d, --include-dot             include dot files
+  -m, --[no-]show-missing       show missing files/directories
+  -d, --[no-]include-dot        include dot files
+  -S, --[no-]skip-symlinks      do not follow symlinks
+  -R, --[no-]no-recurse         do not recurse into subdirectories
+  -D, --[no-]no-dir-in-index    do not track directories in the index
       --force                   force update of damaged items (advanced usage
                                 only)
-  -S, --skip-symlinks           do not follow symlinks
-  -R, --no-recurse              do not recurse into subdirectories
-  -D, --no-dir-in-index         do not track directories in the index
   -l, --log-file=STRING         write to a logfile if specified
-      --log-verbose             verbose logging
+      --[no-]log-verbose        verbose logging
       --algo="blake3"           hash algorithm: md5, sha512, blake3 (default:
                                 blake3)
       --index-name=".chkbit"    filename where chkbit stores its hashes,
@@ -119,10 +113,18 @@ Flags:
                                 needs to start with '.' (default: .chkbitignore)
       --index-db                use a index database instead of index files
   -w, --workers=5               number of workers to use (default: 5)
-      --plain                   show plain status instead of being fancy
-  -q, --quiet                   quiet, don't show progress/information
-  -v, --verbose                 verbose output
+      --[no-]plain              show plain status instead of being fancy
+  -q, --[no-]quiet              quiet, don't show progress/information
+  -v, --[no-]verbose            verbose output
   -V, --version                 show version information
+
+mode
+  -c, --check                check mode: chkbit will verify files in readonly
+                             mode (default mode)
+  -u, --update               update mode: add and update indices
+  -a, --add-only             add mode: only add new and modified files, do not
+                             check existing (quicker)
+  -i, --show-ignored-only    show-ignored mode: only show ignored files
 ```
 
 ```
@@ -149,6 +151,12 @@ Status codes:
   del: file/directory removed
   ign: ignored (see .chkbitignore)
   EXC: exception/panic
+
+Configuration file (json):
+- location /home/spark/.config/chkbit/config.json
+- key names are the option names with '-' replaced by '_'
+- for example --include-dot is written as:
+  { "include_dot": true }
 ```
 
 chkbit is set to use only 5 workers by default so it will not slow your system to a crawl. You can specify a higher number to make it a lot faster if the IO throughput can also keep up.
