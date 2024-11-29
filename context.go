@@ -24,7 +24,6 @@ type Context struct {
 	WorkQueue          chan *WorkItem
 	LogQueue           chan *LogEvent
 	PerfQueue          chan *PerfEvent
-	wg                 sync.WaitGroup
 
 	mutex     sync.Mutex
 	NumTotal  int
@@ -36,10 +35,10 @@ type Context struct {
 
 func NewContext(numWorkers int, hashAlgo string, indexFilename string, ignoreFilename string) (*Context, error) {
 	if indexFilename[0] != '.' {
-		return nil, errors.New("The index filename must start with a dot!")
+		return nil, errors.New("the index filename must start with a dot")
 	}
 	if ignoreFilename[0] != '.' {
-		return nil, errors.New("The ignore filename must start with a dot!")
+		return nil, errors.New("the ignore filename must start with a dot")
 	}
 	if hashAlgo != "md5" && hashAlgo != "sha512" && hashAlgo != "blake3" {
 		return nil, errors.New(hashAlgo + " is unknown.")
