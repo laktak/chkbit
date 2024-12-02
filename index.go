@@ -246,7 +246,7 @@ func (i *Index) save() (bool, error) {
 			return false, err
 		}
 
-		err = i.context.db.Save(i.getIndexFilepath(), file)
+		err = i.context.store.Save(i.getIndexFilepath(), file)
 		if err != nil {
 			return false, err
 		}
@@ -259,7 +259,7 @@ func (i *Index) save() (bool, error) {
 }
 
 func (i *Index) load() error {
-	file, err := i.context.db.Load(i.getIndexFilepath())
+	file, err := i.context.store.Load(i.getIndexFilepath())
 	if file == nil || err != nil {
 		return err
 	}

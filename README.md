@@ -111,20 +111,22 @@ Flags:
       --ignore-name=".chkbitignore"
                                 filename that chkbit reads its ignore list from,
                                 needs to start with '.' (default: .chkbitignore)
-      --index-db                use a index database instead of index files
+      --db                      use a index database instead of index files
   -w, --workers=5               number of workers to use (default: 5)
       --[no-]plain              show plain status instead of being fancy
   -q, --[no-]quiet              quiet, don't show progress/information
   -v, --[no-]verbose            verbose output
   -V, --version                 show version information
 
-mode
-  -c, --check                check mode: chkbit will verify files in readonly
-                             mode (default mode)
-  -u, --update               update mode: add and update indices
-  -a, --add-only             add mode: only add new and modified files, do not
-                             check existing (quicker)
-  -i, --show-ignored-only    show-ignored mode: only show ignored files
+Mode
+  -c, --check                chkbit will verify files in readonly mode (default
+                             mode)
+  -u, --update               add and update indices
+  -a, --add-only             only add new and modified files, do not check
+                             existing (quicker)
+      --init-db              initialize a new index database at the given path
+                             for use with --db
+  -i, --show-ignored-only    only show ignored files
 ```
 
 ```
@@ -187,6 +189,14 @@ Add a `.chkbitignore` file containing the names of the files/directories you wis
 - lines starting with `/` are only applied to the current directory
 - you can use `path/sub/name` to ignore a file/directory in a sub path
 - hidden files (starting with a `.`) are ignored by default unless you use the `-d` option
+
+## Database Usage
+
+*experimental*
+
+To use a chkbit database you need to initalize it first with `chkbit --init-db PATH`.
+
+Then you can run `chkbit` on anything below PATH and it will be tracked in the database.
 
 
 ## chkbit as a Go module

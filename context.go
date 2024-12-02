@@ -2,8 +2,10 @@ package chkbit
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 )
 
@@ -22,13 +24,11 @@ type Context struct {
 	IndexFilename      string
 	IgnoreFilename     string
 
-	UseSingleDb bool
-
 	WorkQueue chan *WorkItem
 	LogQueue  chan *LogEvent
 	PerfQueue chan *PerfEvent
 
-	db *indexDb
+	store *store
 
 	mutex     sync.Mutex
 	NumTotal  int
@@ -56,7 +56,7 @@ func NewContext(numWorkers int, hashAlgo string, indexFilename string, ignoreFil
 		WorkQueue:      make(chan *WorkItem, numWorkers*10),
 		LogQueue:       make(chan *LogEvent, numWorkers*100),
 		PerfQueue:      make(chan *PerfEvent, numWorkers*10),
-		db:             &indexDb{},
+		store:          &store{},
 	}, nil
 }
 
@@ -121,13 +121,14 @@ func (context *Context) Start(pathList []string) {
 	context.NumNew = 0
 	context.NumUpd = 0
 	context.NumDel = 0
-	err := context.db.Open(context.UseSingleDb, !context.UpdateIndex)
+
+	err := context.store.Open(!context.UpdateIndex)
 	if err != nil {
-		context.logErr(context.db.GetDbPath(), err)
+		context.logErr(indexDbName, err)
 		context.LogQueue <- nil
 		return
 	}
-	defer context.db.Close()
+	defer context.store.Close()
 
 	var wg sync.WaitGroup
 	wg.Add(context.NumWorkers)
@@ -199,4 +200,36 @@ func (context *Context) scanDir(root string, parentIgnore *Ignore) {
 			context.scanDir(filepath.Join(root, name), ignore)
 		}
 	}
+}
+
+func (context *Context) UseIndexDb(pathList []string) (root string, relativePathList []string, err error) {
+
+	if len(pathList) == 0 {
+		return "", nil, errors.New("missing path(s)")
+	}
+	err = context.store.UseDb(pathList[0])
+	if err == nil {
+
+		root = context.store.dbPath
+
+		for _, path := range pathList {
+			path, err = filepath.Abs(path)
+			if err != nil {
+				return "", nil, err
+			}
+
+			// below root?
+			if !strings.HasPrefix(path, root) {
+				return "", nil, fmt.Errorf("path %s is not below the indexdb in %s", path, root)
+			}
+
+			relativePath, err := filepath.Rel(root, path)
+			if err != nil {
+				return "", nil, err
+			}
+			relativePathList = append(relativePathList, relativePath)
+		}
+	}
+
+	return
 }

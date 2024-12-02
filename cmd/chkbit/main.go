@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -45,10 +46,11 @@ var (
 var cli struct {
 	Paths           []string `arg:"" optional:"" name:"paths" help:"directories to check"`
 	Tips            bool     `short:"H" help:"Show tips."`
-	Check           bool     `short:"c" help:"check mode: chkbit will verify files in readonly mode (default mode)" xor:"mode" group:"mode"`
-	Update          bool     `short:"u" help:"update mode: add and update indices" xor:"mode" group:"mode"`
-	AddOnly         bool     `short:"a" help:"add mode: only add new and modified files, do not check existing (quicker)" xor:"mode" group:"mode"`
-	ShowIgnoredOnly bool     `short:"i" help:"show-ignored mode: only show ignored files" xor:"mode" group:"mode"`
+	Check           bool     `short:"c" help:"chkbit will verify files in readonly mode (default mode)" xor:"mode" group:"Mode"`
+	Update          bool     `short:"u" help:"add and update indices" xor:"mode" group:"Mode"`
+	AddOnly         bool     `short:"a" help:"only add new and modified files, do not check existing (quicker)" xor:"mode" group:"Mode"`
+	InitDb          bool     `help:"initialize a new index database at the given path for use with --db" xor:"mode" group:"Mode"`
+	ShowIgnoredOnly bool     `short:"i" help:"only show ignored files" xor:"mode" group:"Mode"`
 	ShowMissing     bool     `short:"m" help:"show missing files/directories" negatable:""`
 	IncludeDot      bool     `short:"d" help:"include dot files" negatable:""`
 	SkipSymlinks    bool     `short:"S" help:"do not follow symlinks" negatable:""`
@@ -60,7 +62,7 @@ var cli struct {
 	Algo            string   `default:"blake3" help:"hash algorithm: md5, sha512, blake3 (default: blake3)"`
 	IndexName       string   `default:".chkbit" help:"filename where chkbit stores its hashes, needs to start with '.' (default: .chkbit)"`
 	IgnoreName      string   `default:".chkbitignore" help:"filename that chkbit reads its ignore list from, needs to start with '.' (default: .chkbitignore)"`
-	IndexDb         bool     `help:"use a index database instead of index files"`
+	Db              bool     `help:"use a index database instead of index files"`
 	Workers         int      `short:"w" default:"5" help:"number of workers to use (default: 5)"`
 	Plain           bool     `help:"show plain status instead of being fancy" negatable:""`
 	Quiet           bool     `short:"q" help:"quiet, don't show progress/information" negatable:""`
@@ -159,19 +161,17 @@ func (m *Main) showStatus() {
 	}
 }
 
-func (m *Main) process() bool {
+func (m *Main) process() (bool, error) {
 	// verify mode
 	var b01 = map[bool]int8{false: 0, true: 1}
 	if b01[cli.Check]+b01[cli.Update]+b01[cli.AddOnly]+b01[cli.ShowIgnoredOnly] > 1 {
-		fmt.Println("Error: can only run one mode at a time!")
-		os.Exit(1)
+		return false, errors.New("can only run one mode at a time")
 	}
 
 	var err error
 	m.context, err = chkbit.NewContext(cli.Workers, cli.Algo, cli.IndexName, cli.IgnoreName)
 	if err != nil {
-		fmt.Println(err)
-		return false
+		return false, err
 	}
 	m.context.ForceUpdateDmg = cli.Force
 	m.context.UpdateIndex = cli.Update || cli.AddOnly
@@ -182,7 +182,23 @@ func (m *Main) process() bool {
 	m.context.SkipSymlinks = cli.SkipSymlinks
 	m.context.SkipSubdirectories = cli.NoRecurse
 	m.context.TrackDirectories = !cli.NoDirInIndex
-	m.context.UseSingleDb = cli.IndexDb
+
+	pathList := cli.Paths
+	if cli.Db {
+		var root string
+		root, pathList, err = m.context.UseIndexDb(pathList)
+		if err == nil {
+			// pathList is relative to root
+			err = os.Chdir(root)
+			if m.progress != Quiet {
+				fmt.Println("Using indexdb in " + root)
+			}
+			m.log("using indexdb in " + root)
+		}
+		if err != nil {
+			return false, err
+		}
+	}
 
 	var wg sync.WaitGroup
 	wg.Add(1)
@@ -190,13 +206,13 @@ func (m *Main) process() bool {
 		defer wg.Done()
 		m.showStatus()
 	}()
-	m.context.Start(cli.Paths)
+	m.context.Start(pathList)
 	wg.Wait()
 
-	return true
+	return true, nil
 }
 
-func (m *Main) printResult() {
+func (m *Main) printResult() error {
 	cprint := func(col, text string) {
 		if m.progress != Quiet {
 			if m.progress == Fancy {
@@ -278,11 +294,12 @@ func (m *Main) printResult() {
 	}
 
 	if len(m.dmgList) > 0 || len(m.errList) > 0 {
-		os.Exit(1)
+		return errors.New("fail")
 	}
+	return nil
 }
 
-func (m *Main) run() {
+func (m *Main) run() int {
 
 	if len(os.Args) < 2 {
 		os.Args = append(os.Args, "--help")
@@ -303,13 +320,25 @@ func (m *Main) run() {
 
 	if cli.Tips {
 		fmt.Println(strings.ReplaceAll(helpTips, "<config-file>", configPath))
-		os.Exit(0)
+		return 0
 	}
 
 	if cli.Version {
 		fmt.Println("github.com/laktak/chkbit")
 		fmt.Println(appVersion)
-		return
+		return 0
+	}
+
+	if cli.InitDb {
+		if len(cli.Paths) != 1 {
+			fmt.Println("error: specify a path")
+			return 1
+		}
+		if err := chkbit.InitializeIndexDb(cli.Paths[0], cli.Force); err != nil {
+			fmt.Println("error: " + err.Error())
+			return 1
+		}
+		return 0
 	}
 
 	m.verbose = cli.Verbose || cli.ShowIgnoredOnly
@@ -317,8 +346,8 @@ func (m *Main) run() {
 		m.logVerbose = cli.LogVerbose
 		f, err := os.OpenFile(cli.LogFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
 		if err != nil {
-			fmt.Println(err)
-			return
+			fmt.Println("error: " + err.Error())
+			return 1
 		}
 		defer f.Close()
 		m.logger = log.New(f, "", 0)
@@ -335,37 +364,29 @@ func (m *Main) run() {
 	}
 
 	if len(cli.Paths) > 0 {
-		if cli.IndexDb {
-			if len(cli.Paths) > 1 {
-				fmt.Println("Only one path allowed with --index-db switch")
-				os.Exit(1)
-			}
+		m.log("chkbit " + strings.Join(cli.Paths, ", "))
 
-			mainPath := cli.Paths[0]
-			err := os.Chdir(mainPath)
-			if err != nil {
-				fmt.Println(err)
-				os.Exit(1)
+		if showRes, err := m.process(); err == nil {
+			if showRes && !cli.ShowIgnoredOnly {
+				if m.printResult() != nil {
+					return 1
+				}
 			}
-			cli.Paths[0] = "."
-			m.log("chkbit at " + mainPath)
-
 		} else {
-			m.log("chkbit " + strings.Join(cli.Paths, ", "))
-		}
-
-		if m.process() && !cli.ShowIgnoredOnly {
-			m.printResult()
+			fmt.Println("error: " + err.Error())
+			return 1
 		}
 
 	} else {
-		fmt.Println("specify a path to check, see -h")
+		fmt.Println("error: specify a path, see -h")
 	}
+	return 0
 }
 
 func main() {
 	defer func() {
 		if r := recover(); r != nil {
+			// panic
 			fmt.Println(r)
 			os.Exit(1)
 		}
@@ -378,5 +399,5 @@ func main() {
 		fps:       util.NewRateCalc(time.Second, (termWidth-70)/2),
 		bps:       util.NewRateCalc(time.Second, (termWidth-70)/2),
 	}
-	m.run()
+	os.Exit(m.run())
 }
