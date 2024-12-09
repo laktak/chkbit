@@ -196,7 +196,7 @@ Add a `.chkbitignore` file containing the names of the files/directories you wis
 
 To use a chkbit database you need to initalize it first with `chkbit --init-db PATH`.
 
-Then you can run `chkbit` on anything below PATH and it will be tracked in the database.
+Then you can run `chkbit --db` on anything below PATH and it will be tracked in the database.
 
 
 ## chkbit as a Go module
