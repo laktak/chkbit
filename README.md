@@ -100,6 +100,7 @@ Flags:
   -S, --[no-]skip-symlinks      do not follow symlinks
   -R, --[no-]no-recurse         do not recurse into subdirectories
   -D, --[no-]no-dir-in-index    do not track directories in the index
+      --no-config               ignore the config file
       --force                   force update of damaged items (advanced usage
                                 only)
   -l, --log-file=STRING         write to a logfile if specified

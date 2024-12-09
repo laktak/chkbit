@@ -13,8 +13,4 @@ echo "# prep files"
 $script_dir/build
 
 echo "# test files"
-if [[ -f ~/.config/chkbit/config.json ]]; then
-    echo 'error: unable to test with config file preset'
-    exit 1
-fi
 go test -v ./scripts -count=1

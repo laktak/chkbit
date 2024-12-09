@@ -42,7 +42,7 @@ var (
 	termAlertFG = lterm.Fg4(1)
 )
 
-var cli struct {
+type CLI struct {
 	Paths           []string `arg:"" optional:"" name:"paths" help:"directories to check"`
 	Tips            bool     `short:"H" help:"Show tips."`
 	Check           bool     `short:"c" help:"check mode: chkbit will verify files in readonly mode (default mode)" xor:"mode" group:"mode"`
@@ -54,6 +54,7 @@ var cli struct {
 	SkipSymlinks    bool     `short:"S" help:"do not follow symlinks" negatable:""`
 	NoRecurse       bool     `short:"R" help:"do not recurse into subdirectories" negatable:""`
 	NoDirInIndex    bool     `short:"D" help:"do not track directories in the index" negatable:""`
+	NoConfig        bool     `help:"ignore the config file"`
 	Force           bool     `help:"force update of damaged items (advanced usage only)"`
 	LogFile         string   `short:"l" help:"write to a logfile if specified"`
 	LogVerbose      bool     `help:"verbose logging" negatable:""`
@@ -66,6 +67,8 @@ var cli struct {
 	Verbose         bool     `short:"v" help:"verbose output" negatable:""`
 	Version         bool     `short:"V" help:"show version information"`
 }
+
+var cli CLI
 
 type Main struct {
 	context    *chkbit.Context
@@ -298,6 +301,15 @@ func (m *Main) run() {
 		kong.UsageOnError(),
 		kong.Configuration(kong.JSON, configPath),
 	)
+
+	if cli.NoConfig {
+		cli = CLI{}
+		kong.Parse(&cli,
+			kong.Name("chkbit"),
+			kong.Description(headerHelp),
+			kong.UsageOnError(),
+		)
+	}
 
 	if cli.Tips {
 		fmt.Println(strings.ReplaceAll(helpTips, "<config-file>", configPath))
