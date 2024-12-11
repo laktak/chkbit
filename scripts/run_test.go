@@ -15,10 +15,12 @@ import (
 
 var testDir = "/tmp/chkbit"
 
-func getCmd() string {
+func runCmd(args ...string) *exec.Cmd {
 	_, filename, _, _ := runtime.Caller(0)
 	prjRoot := filepath.Dir(filepath.Dir(filename))
-	return filepath.Join(prjRoot, "chkbit")
+	tool := filepath.Join(prjRoot, "chkbit")
+	args = append([]string{"--no-config"}, args...)
+	return exec.Command(tool, args...)
 }
 
 func checkOut(t *testing.T, sout string, expected string) {
@@ -139,12 +141,11 @@ func setupMiscFiles() {
 func TestRoot(t *testing.T) {
 	setupMiscFiles()
 
-	tool := getCmd()
 	root := filepath.Join(testDir, "root")
 
 	// update index, no recourse
 	t.Run("no-recourse", func(t *testing.T) {
-		cmd := exec.Command(tool, "-umR", filepath.Join(root, "day/office"))
+		cmd := runCmd("-umR", filepath.Join(root, "day/office"))
 		out, err := cmd.Output()
 		if err != nil {
 			t.Fatalf("failed with '%s'\n", err)
@@ -159,7 +160,7 @@ func TestRoot(t *testing.T) {
 
 	// update remaining index from root
 	t.Run("update-remaining", func(t *testing.T) {
-		cmd := exec.Command(tool, "-um", root)
+		cmd := runCmd("-um", root)
 		out, err := cmd.Output()
 		if err != nil {
 			t.Fatalf("failed with '%s'\n", err)
@@ -177,7 +178,7 @@ func TestRoot(t *testing.T) {
 		os.RemoveAll(filepath.Join(root, "thing/change"))
 		os.Remove(filepath.Join(root, "time/hour/minute/body-information.csv"))
 
-		cmd := exec.Command(tool, "-m", root)
+		cmd := runCmd("-m", root)
 		out, err := cmd.Output()
 		if err != nil {
 			t.Fatalf("failed with '%s'\n", err)
@@ -189,7 +190,7 @@ func TestRoot(t *testing.T) {
 
 	// do not report missing without -m
 	t.Run("no-missing", func(t *testing.T) {
-		cmd := exec.Command(tool, root)
+		cmd := runCmd(root)
 		out, err := cmd.Output()
 		if err != nil {
 			t.Fatalf("failed with '%s'\n", err)
@@ -201,7 +202,7 @@ func TestRoot(t *testing.T) {
 
 	// check for missing and update
 	t.Run("missing", func(t *testing.T) {
-		cmd := exec.Command(tool, "-um", root)
+		cmd := runCmd("-um", root)
 		out, err := cmd.Output()
 		if err != nil {
 			t.Fatalf("failed with '%s'\n", err)
@@ -214,7 +215,7 @@ func TestRoot(t *testing.T) {
 	// check again
 	t.Run("repeat", func(t *testing.T) {
 		for i := 0; i < 10; i++ {
-			cmd := exec.Command(tool, "-uv", root)
+			cmd := runCmd("-uv", root)
 			out, err := cmd.Output()
 			if err != nil {
 				t.Fatalf("failed with '%s'\n", err)
@@ -233,7 +234,7 @@ func TestRoot(t *testing.T) {
 		genFiles(filepath.Join(root, "way/add"), 99)
 		genFile(filepath.Join(root, "time/add-file.txt"), 500)
 
-		cmd := exec.Command(tool, "-a", root)
+		cmd := runCmd("-a", root)
 		out, err := cmd.Output()
 		if err != nil {
 			t.Fatalf("failed with '%s'\n", err)
@@ -251,7 +252,7 @@ func TestRoot(t *testing.T) {
 		// modify existing
 		genFile(filepath.Join(root, "way/job/word-business.mp3"), 500)
 
-		cmd := exec.Command(tool, "-a", root)
+		cmd := runCmd("-a", root)
 		out, err := cmd.Output()
 		if err != nil {
 			t.Fatalf("failed with '%s'\n", err)
@@ -266,7 +267,7 @@ func TestRoot(t *testing.T) {
 
 	// update remaining
 	t.Run("update-remaining-add", func(t *testing.T) {
-		cmd := exec.Command(tool, "-u", root)
+		cmd := runCmd("-u", root)
 		out, err := cmd.Output()
 		if err != nil {
 			t.Fatalf("failed with '%s'\n", err)
@@ -281,7 +282,7 @@ func TestRoot(t *testing.T) {
 		genFiles(filepath.Join(root, "way/.hidden"), 99)
 		genFile(filepath.Join(root, "time/.ignored"), 999)
 
-		cmd := exec.Command(tool, "-u", root)
+		cmd := runCmd("-u", root)
 		out, err := cmd.Output()
 		if err != nil {
 			t.Fatalf("failed with '%s'\n", err)
@@ -293,7 +294,7 @@ func TestRoot(t *testing.T) {
 	// include dot
 	t.Run("include-dot", func(t *testing.T) {
 
-		cmd := exec.Command(tool, "-u", "-d", root)
+		cmd := runCmd("-u", "-d", root)
 		out, err := cmd.Output()
 		if err != nil {
 			t.Fatalf("failed with '%s'\n", err)
@@ -323,7 +324,6 @@ func TestDMG(t *testing.T) {
 		panic(err)
 	}
 
-	tool := getCmd()
 	testFile := filepath.Join(testDmg, "test.txt")
 	t1, _ := time.Parse(time.RFC3339, "2022-02-01T11:00:00Z")
 	t2, _ := time.Parse(time.RFC3339, "2022-02-01T12:00:00Z")
@@ -334,7 +334,7 @@ func TestDMG(t *testing.T) {
 		os.WriteFile(testFile, []byte("foo1"), 0644)
 		os.Chtimes(testFile, t2, t2)
 
-		cmd := exec.Command(tool, "-u", ".")
+		cmd := runCmd("-u", ".")
 		if out, err := cmd.Output(); err != nil {
 			t.Fatalf("failed with '%s'\n", err)
 		} else {
@@ -347,7 +347,7 @@ func TestDMG(t *testing.T) {
 		os.WriteFile(testFile, []byte("foo2"), 0644)
 		os.Chtimes(testFile, t1, t1)
 
-		cmd := exec.Command(tool, "-u", ".")
+		cmd := runCmd("-u", ".")
 		if out, err := cmd.Output(); err != nil {
 			t.Fatalf("failed with '%s'\n", err)
 		} else {
@@ -360,7 +360,7 @@ func TestDMG(t *testing.T) {
 		os.WriteFile(testFile, []byte("foo3"), 0644)
 		os.Chtimes(testFile, t3, t3)
 
-		cmd := exec.Command(tool, "-u", ".")
+		cmd := runCmd("-u", ".")
 		if out, err := cmd.Output(); err != nil {
 			t.Fatalf("failed with '%s'\n", err)
 		} else {
@@ -373,7 +373,7 @@ func TestDMG(t *testing.T) {
 		os.WriteFile(testFile, []byte("foo4"), 0644)
 		os.Chtimes(testFile, t3, t3)
 
-		cmd := exec.Command(tool, "-u", ".")
+		cmd := runCmd("-u", ".")
 		if out, err := cmd.Output(); err != nil {
 			if cmd.ProcessState.ExitCode() != 1 {
 				t.Fatalf("expected to fail with exit code 1 vs %d!", cmd.ProcessState.ExitCode())
