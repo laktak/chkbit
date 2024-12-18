@@ -223,7 +223,7 @@ func (i *Index) calcFile(name string, a string) (*idxInfo, error) {
 }
 
 func (i *Index) save() (bool, error) {
-	if i.modified {
+	if i.modified || !i.readonly && i.context.store.refreshDb {
 		if i.readonly {
 			return false, errors.New("error trying to save a readonly index")
 		}

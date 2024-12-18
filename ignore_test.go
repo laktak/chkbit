@@ -5,9 +5,11 @@ import (
 )
 
 func TestShouldIgnore(t *testing.T) {
-	context := &Context{
-		IncludeDot: true,
+	context, err := NewContext(1, "blake3", ".chkbit", ".chkbitignore")
+	if err != nil {
+		t.Error(err)
 	}
+	context.IncludeDot = true
 
 	ignore1 := &Ignore{
 		parentIgnore: nil,
@@ -39,6 +41,7 @@ func TestShouldIgnore(t *testing.T) {
 		expected bool
 	}{
 		// test root
+		{ignore1, ".chkbit-db", true},
 		{ignore1, "all.txt", true},
 		{ignore1, "readme.md", false},
 		{ignore1, "photo.jpg", true},
@@ -47,6 +50,7 @@ func TestShouldIgnore(t *testing.T) {
 		{ignore1, "tokyo", true},
 		{ignore1, "sydney", true},
 		// test in berlin
+		{ignore2, ".chkbit", true},
 		{ignore2, "all.txt", true},
 		{ignore2, "readme.md", true},
 		{ignore2, "photo.jpg", false},

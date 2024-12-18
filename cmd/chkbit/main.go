@@ -209,7 +209,7 @@ func (m *Main) process() (bool, error) {
 		defer wg.Done()
 		m.showStatus()
 	}()
-	m.context.Start(pathList)
+	m.context.Process(pathList)
 	wg.Wait()
 
 	return true, nil
@@ -346,7 +346,7 @@ func (m *Main) run() int {
 			fmt.Println("error: specify a path")
 			return 1
 		}
-		if err := chkbit.InitializeIndexDb(cli.Paths[0], cli.Force); err != nil {
+		if err := chkbit.InitializeIndexDb(cli.Paths[0], cli.IndexName, cli.Force); err != nil {
 			fmt.Println("error: " + err.Error())
 			return 1
 		}

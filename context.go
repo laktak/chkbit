@@ -46,7 +46,10 @@ func NewContext(numWorkers int, hashAlgo string, indexFilename string, ignoreFil
 		return nil, errors.New("the ignore filename must start with a dot")
 	}
 	if hashAlgo != "md5" && hashAlgo != "sha512" && hashAlgo != "blake3" {
-		return nil, errors.New(hashAlgo + " is unknown.")
+		return nil, errors.New(hashAlgo + " is unknown")
+	}
+	if numWorkers < 1 {
+		return nil, errors.New("expected numWorkers >= 1")
 	}
 	return &Context{
 		NumWorkers:     numWorkers,
@@ -112,10 +115,11 @@ func (context *Context) endWork() {
 }
 
 func (context *Context) isChkbitFile(name string) bool {
-	return name == context.IndexFilename || name == context.IgnoreFilename
+	// any file with the index prefix is ignored (to allow for .bak and db files)
+	return strings.HasPrefix(name, context.IndexFilename) || name == context.IgnoreFilename
 }
 
-func (context *Context) Start(pathList []string) {
+func (context *Context) Process(pathList []string) {
 	context.NumTotal = 0
 	context.NumIdxUpd = 0
 	context.NumNew = 0
@@ -124,7 +128,7 @@ func (context *Context) Start(pathList []string) {
 
 	err := context.store.Open(!context.UpdateIndex)
 	if err != nil {
-		context.logErr(indexDbName, err)
+		context.logErr("index", err)
 		context.LogQueue <- nil
 		return
 	}
@@ -147,6 +151,11 @@ func (context *Context) Start(pathList []string) {
 		}
 	}()
 	wg.Wait()
+
+	err = context.store.Finish()
+	if err != nil {
+		context.logErr("index", err)
+	}
 	context.LogQueue <- nil
 }
 
@@ -207,10 +216,8 @@ func (context *Context) UseIndexDb(pathList []string) (root string, relativePath
 	if len(pathList) == 0 {
 		return "", nil, errors.New("missing path(s)")
 	}
-	err = context.store.UseDb(pathList[0])
+	root, err = LocateIndexDb(pathList[0], context.IndexFilename)
 	if err == nil {
-
-		root = context.store.dbPath
 
 		for _, path := range pathList {
 			path, err = filepath.Abs(path)
@@ -229,6 +236,8 @@ func (context *Context) UseIndexDb(pathList []string) (root string, relativePath
 			}
 			relativePathList = append(relativePathList, relativePath)
 		}
+
+		context.store.UseDb(root, context.IndexFilename, len(relativePathList) == 1 && relativePathList[0] == ".")
 	}
 
 	return
