@@ -94,7 +94,7 @@ Arguments:
 
 Flags:
   -h, --help                    Show context-sensitive help.
-  -H, --tips                    Show tips.
+  -H, --tips                    show tips
   -m, --[no-]show-missing       show missing files/directories
   -d, --[no-]include-dot        include dot files
   -S, --[no-]skip-symlinks      do not follow symlinks
@@ -105,15 +105,15 @@ Flags:
                                 only)
   -l, --log-file=STRING         write to a logfile if specified
       --[no-]log-verbose        verbose logging
-      --algo="blake3"           hash algorithm: md5, sha512, blake3 (default:
-                                blake3)
+      --algo="blake3"           hash algorithm: md5, sha512, blake3
       --index-name=".chkbit"    filename where chkbit stores its hashes,
-                                needs to start with '.' (default: .chkbit)
+                                needs to start with '.'
       --ignore-name=".chkbitignore"
                                 filename that chkbit reads its ignore list from,
-                                needs to start with '.' (default: .chkbitignore)
+                                needs to start with '.'
       --db                      use a index database instead of index files
-  -w, --workers=5               number of workers to use (default: 5)
+  -w, --workers=5               number of workers to use. For slow IO (like on a
+                                spinning disk) --workers=1 will be faster.
       --[no-]plain              show plain status instead of being fancy
   -q, --[no-]quiet              quiet, don't show progress/information
   -v, --[no-]verbose            verbose output
@@ -162,7 +162,7 @@ Configuration file (json):
   { "include_dot": true }
 ```
 
-chkbit is set to use only 5 workers by default so it will not slow your system to a crawl. You can specify a higher number to make it a lot faster if the IO throughput can also keep up.
+chkbit is set to use only 5 workers by default so it will not slow your system to a crawl. You can specify a higher number to make it a lot faster if the IO throughput can also keep up. For slow/spinning disks, use `--worker=1`.
 
 
 ## Repair
