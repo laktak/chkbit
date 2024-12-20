@@ -57,18 +57,20 @@ func (s *store) Open(readOnly bool) error {
 
 			if s.refreshDb {
 				err = clearFile(s.newFile)
-				if err != nil {
-					return err
-				}
 			} else {
 				err = copyFile(s.dbFile, s.newFile)
 			}
+			if err != nil {
+				return err
+			}
 
 			s.connW, err = bolt.Open(s.newFile, 0600, optW)
-			err = s.connW.Update(func(tx *bolt.Tx) error {
-				_, err := tx.CreateBucketIfNotExists([]byte("data"))
-				return err
-			})
+			if err == nil {
+				err = s.connW.Update(func(tx *bolt.Tx) error {
+					_, err := tx.CreateBucketIfNotExists([]byte("data"))
+					return err
+				})
+			}
 		}
 	}
 	return err
