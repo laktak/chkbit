@@ -70,18 +70,18 @@ ls -l chkbit/chkbit
 
 ## Usage
 
-Run `chkbit -u PATH` to create/update the chkbit index.
+Run `chkbit update PATH` to create/update the chkbit index.
 
 chkbit will
 
-- create a `.chkbit` index in every subdirectory of the path it was given.
-- update the index with blake3 (see --algo) hashes for every file.
+- create a `.chkbit` index in every subdirectory of the path it was given (see `--db` to use a database).
+- update the index with blake3 (see `--algo`) hashes for every file.
 - report damage for files that failed the integrity check since the last run (check the exit status).
 
-Run `chkbit PATH` to verify only.
+Run `chkbit check PATH` to verify only.
 
 ```
-Usage: chkbit [<paths> ...] [flags]
+Usage: chkbit <command> [flags]
 
 Ensures the safety of your files by verifying that their data integrity remains
 intact over time, especially during transfers and backups.
@@ -89,20 +89,15 @@ intact over time, especially during transfers and backups.
     For help tips run "chkbit -H" or go to
     https://github.com/laktak/chkbit
 
-Arguments:
-  [<paths> ...]    directories to check
-
 Flags:
   -h, --help                    Show context-sensitive help.
-  -H, --tips                    show tips
+      --db                      use a index database instead of index files
   -m, --[no-]show-missing       show missing files/directories
   -d, --[no-]include-dot        include dot files
   -S, --[no-]skip-symlinks      do not follow symlinks
   -R, --[no-]no-recurse         do not recurse into subdirectories
   -D, --[no-]no-dir-in-index    do not track directories in the index
       --no-config               ignore the config file
-      --force                   force update of damaged items (advanced usage
-                                only)
   -l, --log-file=STRING         write to a logfile if specified
       --[no-]log-verbose        verbose logging
       --algo="blake3"           hash algorithm: md5, sha512, blake3
@@ -111,27 +106,36 @@ Flags:
       --ignore-name=".chkbitignore"
                                 filename that chkbit reads its ignore list from,
                                 needs to start with '.'
-      --db                      use a index database instead of index files
   -w, --workers=5               number of workers to use. For slow IO (like on a
                                 spinning disk) --workers=1 will be faster.
       --[no-]plain              show plain status instead of being fancy
   -q, --[no-]quiet              quiet, don't show progress/information
   -v, --[no-]verbose            verbose output
-  -V, --version                 show version information
 
-Mode
-  -c, --check                chkbit will verify files in readonly mode (default
-                             mode)
-  -u, --update               add and update indices
-  -a, --add-only             only add new and modified files, do not check
-                             existing (quicker)
-      --init-db              initialize a new index database at the given path
-                             for use with --db
-  -i, --show-ignored-only    only show ignored files
+Commands:
+  check <paths> ... [flags]
+    chkbit will verify files in readonly mode
+
+  update <paths> ... [flags]
+    add and update indices
+
+  init-db <path> [flags]
+    initialize a new index database at the given path for use with --db
+
+  show-ignored-only <paths> ... [flags]
+    only show ignored files
+
+  tips [flags]
+    show tips
+
+  version [flags]
+    show version information
+
+Run "chkbit <command> --help" for more information on a command.
 ```
 
 ```
-$ chkbit -H
+$ chkbit tips
 
 .chkbitignore rules:
 - each line should contain exactly one name
@@ -162,7 +166,7 @@ Configuration file (json):
   { "include_dot": true }
 ```
 
-chkbit is set to use only 5 workers by default so it will not slow your system to a crawl. You can specify a higher number to make it a lot faster if the IO throughput can also keep up. For slow/spinning disks, use `--worker=1`.
+chkbit is set to use 5 workers by default so it will not slow your system to a crawl. You can specify a higher number to make it a lot faster if the IO throughput can also keep up. For slow/spinning disks, use `--worker=1`.
 
 
 ## Repair
@@ -266,7 +270,7 @@ On Linux/macOS you can try:
 Create test and set the modified time:
 ```
 $ echo foo1 > test; touch -t 201501010000 test
-$ chkbit -u .
+$ chkbit update .
 new ./test
 
 Processed 1 file.
@@ -283,7 +287,7 @@ Processed 1 file.
 Now update test with a new modified:
 ```
 $ echo foo2 > test; touch -t 201501010001 test # update test & modified
-$ chkbit -u .
+$ chkbit update .
 upd ./test
 
 Processed 1 file.
@@ -300,7 +304,7 @@ Processed 1 file.
 Now update test with the same modified to simulate damage:
 ```
 $ echo foo3 > test; touch -t 201501010001 test
-$ chkbit -u .
+$ chkbit update .
 DMG ./test
 
 Processed 1 file.
@@ -313,6 +317,4 @@ error: detected 1 file with damage!
 ```
 
 `DMG` indicates damage.
-
-
 

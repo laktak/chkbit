@@ -145,7 +145,7 @@ func TestRoot(t *testing.T) {
 
 	// update index, no recourse
 	t.Run("no-recourse", func(t *testing.T) {
-		cmd := runCmd("-umR", filepath.Join(root, "day/office"))
+		cmd := runCmd("update", "-mR", filepath.Join(root, "day/office"))
 		out, err := cmd.Output()
 		if err != nil {
 			t.Fatalf("failed with '%s'\n", err)
@@ -160,7 +160,7 @@ func TestRoot(t *testing.T) {
 
 	// update remaining index from root
 	t.Run("update-remaining", func(t *testing.T) {
-		cmd := runCmd("-um", root)
+		cmd := runCmd("update", "-m", root)
 		out, err := cmd.Output()
 		if err != nil {
 			t.Fatalf("failed with '%s'\n", err)
@@ -178,7 +178,7 @@ func TestRoot(t *testing.T) {
 		os.RemoveAll(filepath.Join(root, "thing/change"))
 		os.Remove(filepath.Join(root, "time/hour/minute/body-information.csv"))
 
-		cmd := runCmd("-m", root)
+		cmd := runCmd("check", "-m", root)
 		out, err := cmd.Output()
 		if err != nil {
 			t.Fatalf("failed with '%s'\n", err)
@@ -190,7 +190,7 @@ func TestRoot(t *testing.T) {
 
 	// do not report missing without -m
 	t.Run("no-missing", func(t *testing.T) {
-		cmd := runCmd(root)
+		cmd := runCmd("check", root)
 		out, err := cmd.Output()
 		if err != nil {
 			t.Fatalf("failed with '%s'\n", err)
@@ -202,7 +202,7 @@ func TestRoot(t *testing.T) {
 
 	// check for missing and update
 	t.Run("missing", func(t *testing.T) {
-		cmd := runCmd("-um", root)
+		cmd := runCmd("update", "-m", root)
 		out, err := cmd.Output()
 		if err != nil {
 			t.Fatalf("failed with '%s'\n", err)
@@ -215,7 +215,7 @@ func TestRoot(t *testing.T) {
 	// check again
 	t.Run("repeat", func(t *testing.T) {
 		for i := 0; i < 10; i++ {
-			cmd := runCmd("-uv", root)
+			cmd := runCmd("update", "-v", root)
 			out, err := cmd.Output()
 			if err != nil {
 				t.Fatalf("failed with '%s'\n", err)
@@ -234,7 +234,7 @@ func TestRoot(t *testing.T) {
 		genFiles(filepath.Join(root, "way/add"), 99)
 		genFile(filepath.Join(root, "time/add-file.txt"), 500)
 
-		cmd := runCmd("-a", root)
+		cmd := runCmd("update", "-a", root)
 		out, err := cmd.Output()
 		if err != nil {
 			t.Fatalf("failed with '%s'\n", err)
@@ -252,7 +252,7 @@ func TestRoot(t *testing.T) {
 		// modify existing
 		genFile(filepath.Join(root, "way/job/word-business.mp3"), 500)
 
-		cmd := runCmd("-a", root)
+		cmd := runCmd("update", "-a", root)
 		out, err := cmd.Output()
 		if err != nil {
 			t.Fatalf("failed with '%s'\n", err)
@@ -267,7 +267,7 @@ func TestRoot(t *testing.T) {
 
 	// update remaining
 	t.Run("update-remaining-add", func(t *testing.T) {
-		cmd := runCmd("-u", root)
+		cmd := runCmd("update", root)
 		out, err := cmd.Output()
 		if err != nil {
 			t.Fatalf("failed with '%s'\n", err)
@@ -282,7 +282,7 @@ func TestRoot(t *testing.T) {
 		genFiles(filepath.Join(root, "way/.hidden"), 99)
 		genFile(filepath.Join(root, "time/.ignored"), 999)
 
-		cmd := runCmd("-u", root)
+		cmd := runCmd("update", root)
 		out, err := cmd.Output()
 		if err != nil {
 			t.Fatalf("failed with '%s'\n", err)
@@ -294,7 +294,7 @@ func TestRoot(t *testing.T) {
 	// include dot
 	t.Run("include-dot", func(t *testing.T) {
 
-		cmd := runCmd("-u", "-d", root)
+		cmd := runCmd("update", "-d", root)
 		out, err := cmd.Output()
 		if err != nil {
 			t.Fatalf("failed with '%s'\n", err)
@@ -334,7 +334,7 @@ func TestDMG(t *testing.T) {
 		os.WriteFile(testFile, []byte("foo1"), 0644)
 		os.Chtimes(testFile, t2, t2)
 
-		cmd := runCmd("-u", ".")
+		cmd := runCmd("update", ".")
 		if out, err := cmd.Output(); err != nil {
 			t.Fatalf("failed with '%s'\n", err)
 		} else {
@@ -347,7 +347,7 @@ func TestDMG(t *testing.T) {
 		os.WriteFile(testFile, []byte("foo2"), 0644)
 		os.Chtimes(testFile, t1, t1)
 
-		cmd := runCmd("-u", ".")
+		cmd := runCmd("update", ".")
 		if out, err := cmd.Output(); err != nil {
 			t.Fatalf("failed with '%s'\n", err)
 		} else {
@@ -360,7 +360,7 @@ func TestDMG(t *testing.T) {
 		os.WriteFile(testFile, []byte("foo3"), 0644)
 		os.Chtimes(testFile, t3, t3)
 
-		cmd := runCmd("-u", ".")
+		cmd := runCmd("update", ".")
 		if out, err := cmd.Output(); err != nil {
 			t.Fatalf("failed with '%s'\n", err)
 		} else {
@@ -373,7 +373,7 @@ func TestDMG(t *testing.T) {
 		os.WriteFile(testFile, []byte("foo4"), 0644)
 		os.Chtimes(testFile, t3, t3)
 
-		cmd := runCmd("-u", ".")
+		cmd := runCmd("update", ".")
 		if out, err := cmd.Output(); err != nil {
 			if cmd.ProcessState.ExitCode() != 1 {
 				t.Fatalf("expected to fail with exit code 1 vs %d!", cmd.ProcessState.ExitCode())

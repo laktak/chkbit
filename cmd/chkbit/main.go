@@ -26,6 +26,14 @@ const (
 	Fancy
 )
 
+type Command int
+
+const (
+	Check Command = iota
+	Update
+	Show
+)
+
 const (
 	updateInterval       = time.Millisecond * 700
 	sizeMB         int64 = 1024 * 1024
@@ -44,34 +52,48 @@ var (
 )
 
 type CLI struct {
-	Paths           []string `arg:"" optional:"" name:"paths" help:"directories to check"`
-	Tips            bool     `short:"H" help:"show tips"`
-	Check           bool     `short:"c" help:"chkbit will verify files in readonly mode (default mode)" xor:"mode" group:"Mode"`
-	Update          bool     `short:"u" help:"add and update indices" xor:"mode" group:"Mode"`
-	AddOnly         bool     `short:"a" help:"only add new and modified files, do not check existing (quicker)" xor:"mode" group:"Mode"`
-	InitDb          bool     `help:"initialize a new index database at the given path for use with --db" xor:"mode" group:"Mode"`
-	ShowIgnoredOnly bool     `short:"i" help:"only show ignored files" xor:"mode" group:"Mode"`
-	ShowMissing     bool     `short:"m" help:"show missing files/directories" negatable:""`
-	IncludeDot      bool     `short:"d" help:"include dot files" negatable:""`
-	SkipSymlinks    bool     `short:"S" help:"do not follow symlinks" negatable:""`
-	NoRecurse       bool     `short:"R" help:"do not recurse into subdirectories" negatable:""`
-	NoDirInIndex    bool     `short:"D" help:"do not track directories in the index" negatable:""`
-	NoConfig        bool     `help:"ignore the config file"`
-	Force           bool     `help:"force update of damaged items (advanced usage only)"`
-	LogFile         string   `short:"l" help:"write to a logfile if specified"`
-	LogVerbose      bool     `help:"verbose logging" negatable:""`
-	Algo            string   `default:"blake3" help:"hash algorithm: md5, sha512, blake3"`
-	IndexName       string   `default:".chkbit" help:"filename where chkbit stores its hashes, needs to start with '.'"`
-	IgnoreName      string   `default:".chkbitignore" help:"filename that chkbit reads its ignore list from, needs to start with '.'"`
-	Db              bool     `help:"use a index database instead of index files"`
-	Workers         int      `short:"w" default:"5" help:"number of workers to use. For slow IO (like on a spinning disk) --workers=1 will be faster."`
-	Plain           bool     `help:"show plain status instead of being fancy" negatable:""`
-	Quiet           bool     `short:"q" help:"quiet, don't show progress/information" negatable:""`
-	Verbose         bool     `short:"v" help:"verbose output" negatable:""`
-	Version         bool     `short:"V" help:"show version information"`
-}
+	Check struct {
+		Paths []string `arg:""  name:"paths" help:"directories to check"`
+	} `cmd:"" help:"chkbit will verify files in readonly mode"`
 
-var cli CLI
+	Update struct {
+		Paths   []string `arg:""  name:"paths" help:"directories to update"`
+		AddOnly bool     `short:"a" help:"only add new and modified files, do not check existing (quicker)"`
+		Force   bool     `help:"force update of damaged items (advanced usage only)"`
+	} `cmd:"" help:"add and update indices"`
+
+	InitDb struct {
+		Path  string `arg:"" help:"directory for the database"`
+		Force bool   `help:"force init if a database already exists"`
+	} `cmd:"" help:"initialize a new index database at the given path for use with --db"`
+
+	ShowIgnoredOnly struct {
+		Paths []string `arg:""  name:"paths" help:"directories to list"`
+	} `cmd:"" help:"only show ignored files"`
+
+	Tips struct {
+	} `cmd:"" help:"show tips"`
+
+	Version struct {
+	} `cmd:"" help:"show version information"`
+
+	Db           bool   `help:"use a index database instead of index files"`
+	ShowMissing  bool   `short:"m" help:"show missing files/directories" negatable:""`
+	IncludeDot   bool   `short:"d" help:"include dot files" negatable:""`
+	SkipSymlinks bool   `short:"S" help:"do not follow symlinks" negatable:""`
+	NoRecurse    bool   `short:"R" help:"do not recurse into subdirectories" negatable:""`
+	NoDirInIndex bool   `short:"D" help:"do not track directories in the index" negatable:""`
+	NoConfig     bool   `help:"ignore the config file"`
+	LogFile      string `short:"l" help:"write to a logfile if specified"`
+	LogVerbose   bool   `help:"verbose logging" negatable:""`
+	Algo         string `default:"blake3" help:"hash algorithm: md5, sha512, blake3"`
+	IndexName    string `default:".chkbit" help:"filename where chkbit stores its hashes, needs to start with '.'"`
+	IgnoreName   string `default:".chkbitignore" help:"filename that chkbit reads its ignore list from, needs to start with '.'"`
+	Workers      int    `short:"w" default:"5" help:"number of workers to use. For slow IO (like on a spinning disk) --workers=1 will be faster."`
+	Plain        bool   `help:"show plain status instead of being fancy" negatable:""`
+	Quiet        bool   `short:"q" help:"quiet, don't show progress/information" negatable:""`
+	Verbose      bool   `short:"v" help:"verbose output" negatable:""`
+}
 
 type Main struct {
 	context    *chkbit.Context
@@ -164,29 +186,37 @@ func (m *Main) showStatus() {
 	}
 }
 
-func (m *Main) process() (bool, error) {
-	// verify mode
-	var b01 = map[bool]int8{false: 0, true: 1}
-	if b01[cli.Check]+b01[cli.Update]+b01[cli.AddOnly]+b01[cli.ShowIgnoredOnly] > 1 {
-		return false, errors.New("can only run one mode at a time")
-	}
+func (m *Main) process(cmd Command, cli CLI) (bool, error) {
 
 	var err error
 	m.context, err = chkbit.NewContext(cli.Workers, cli.Algo, cli.IndexName, cli.IgnoreName)
 	if err != nil {
 		return false, err
 	}
-	m.context.ForceUpdateDmg = cli.Force
-	m.context.UpdateIndex = cli.Update || cli.AddOnly
-	m.context.AddOnly = cli.AddOnly
-	m.context.ShowIgnoredOnly = cli.ShowIgnoredOnly
+
+	var pathList []string
+	switch cmd {
+	case Check:
+		pathList = cli.Check.Paths
+		m.log("chkbit check " + strings.Join(pathList, ", "))
+	case Update:
+		pathList = cli.Update.Paths
+		m.context.UpdateIndex = true
+		m.context.AddOnly = cli.Update.AddOnly
+		m.context.ForceUpdateDmg = cli.Update.Force
+		m.log("chkbit update " + strings.Join(pathList, ", "))
+	case Show:
+		pathList = cli.ShowIgnoredOnly.Paths
+		m.context.ShowIgnoredOnly = true
+		m.log("chkbit show-ignored-only " + strings.Join(pathList, ", "))
+	}
+
 	m.context.ShowMissing = cli.ShowMissing
 	m.context.IncludeDot = cli.IncludeDot
 	m.context.SkipSymlinks = cli.SkipSymlinks
 	m.context.SkipSubdirectories = cli.NoRecurse
 	m.context.TrackDirectories = !cli.NoDirInIndex
 
-	pathList := cli.Paths
 	if cli.Db {
 		var root string
 		root, pathList, err = m.context.UseIndexDb(pathList)
@@ -269,7 +299,7 @@ func (m *Main) printResult() error {
 			if m.context.NumDel > 0 {
 				del = fmt.Sprintf("\n- %s would have been removed", util.LangNum1Choice(m.context.NumDel, "file/directory", "files/directories"))
 			}
-			cprint(termAlertFG, fmt.Sprintf("No changes were made (specify -u to update):\n- %s would have been added\n- %s would have been updated%s",
+			cprint(termAlertFG, fmt.Sprintf("No changes were made:\n- %s would have been added\n- %s would have been updated%s",
 				util.LangNum1MutateSuffix(m.context.NumNew, "file"),
 				util.LangNum1MutateSuffix(m.context.NumUpd, "file"),
 				del))
@@ -314,7 +344,10 @@ func (m *Main) run() int {
 		configPath = filepath.Join(configRoot, "chkbit/config.json")
 	}
 
-	kong.Parse(&cli,
+	var cli CLI
+	var ctx *kong.Context
+	var cmd Command
+	ctx = kong.Parse(&cli,
 		kong.Name("chkbit"),
 		kong.Description(headerHelp),
 		kong.UsageOnError(),
@@ -323,37 +356,40 @@ func (m *Main) run() int {
 
 	if cli.NoConfig {
 		cli = CLI{}
-		kong.Parse(&cli,
+		ctx = kong.Parse(&cli,
 			kong.Name("chkbit"),
 			kong.Description(headerHelp),
 			kong.UsageOnError(),
 		)
 	}
 
-	if cli.Tips {
-		fmt.Println(strings.ReplaceAll(helpTips, "<config-file>", configPath))
-		os.Exit(0)
-	}
-
-	if cli.Version {
-		fmt.Println("github.com/laktak/chkbit")
-		fmt.Println(appVersion)
-		return 0
-	}
-
-	if cli.InitDb {
-		if len(cli.Paths) != 1 {
-			fmt.Println("error: specify a path")
-			return 1
-		}
-		if err := chkbit.InitializeIndexDb(cli.Paths[0], cli.IndexName, cli.Force); err != nil {
+	switch ctx.Command() {
+	case "check <paths>":
+		cmd = Check
+	case "update <paths>":
+		cmd = Update
+	case "show-ignored-only <paths>":
+		cmd = Show
+	case "init-db <path>":
+		m.log("chkbit init-db " + cli.InitDb.Path)
+		if err := chkbit.InitializeIndexDb(cli.InitDb.Path, cli.IndexName, cli.InitDb.Force); err != nil {
 			fmt.Println("error: " + err.Error())
 			return 1
 		}
 		return 0
+	case "tips":
+		fmt.Println(strings.ReplaceAll(helpTips, "<config-file>", configPath))
+		return 0
+	case "version":
+		fmt.Println("github.com/laktak/chkbit")
+		fmt.Println(appVersion)
+		return 0
+	default:
+		fmt.Println("unknown: " + ctx.Command())
+		return 1
 	}
 
-	m.verbose = cli.Verbose || cli.ShowIgnoredOnly
+	m.verbose = cli.Verbose || cmd == Show
 	if cli.LogFile != "" {
 		m.logVerbose = cli.LogVerbose
 		f, err := os.OpenFile(cli.LogFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
@@ -375,23 +411,17 @@ func (m *Main) run() int {
 		m.progress = Fancy
 	}
 
-	if len(cli.Paths) > 0 {
-		m.log("chkbit " + strings.Join(cli.Paths, ", "))
-
-		if showRes, err := m.process(); err == nil {
-			if showRes && !cli.ShowIgnoredOnly {
-				if m.printResult() != nil {
-					return 1
-				}
+	if showRes, err := m.process(cmd, cli); err == nil {
+		if showRes && cmd != Show {
+			if m.printResult() != nil {
+				return 1
 			}
-		} else {
-			fmt.Println("error: " + err.Error())
-			return 1
 		}
-
 	} else {
-		fmt.Println("error: specify a path, see -h")
+		fmt.Println("error: " + err.Error())
+		return 1
 	}
+
 	return 0
 }
 
