@@ -44,7 +44,7 @@ var (
 
 type CLI struct {
 	Paths           []string `arg:"" optional:"" name:"paths" help:"directories to check"`
-	Tips            bool     `short:"H" help:"Show tips."`
+	Tips            bool     `short:"H" help:"show tips"`
 	Check           bool     `short:"c" help:"check mode: chkbit will verify files in readonly mode (default mode)" xor:"mode" group:"mode"`
 	Update          bool     `short:"u" help:"update mode: add and update indices" xor:"mode" group:"mode"`
 	AddOnly         bool     `short:"a" help:"add mode: only add new and modified files, do not check existing (quicker)" xor:"mode" group:"mode"`
@@ -58,10 +58,10 @@ type CLI struct {
 	Force           bool     `help:"force update of damaged items (advanced usage only)"`
 	LogFile         string   `short:"l" help:"write to a logfile if specified"`
 	LogVerbose      bool     `help:"verbose logging" negatable:""`
-	Algo            string   `default:"blake3" help:"hash algorithm: md5, sha512, blake3 (default: blake3)"`
-	IndexName       string   `default:".chkbit" help:"filename where chkbit stores its hashes, needs to start with '.' (default: .chkbit)"`
-	IgnoreName      string   `default:".chkbitignore" help:"filename that chkbit reads its ignore list from, needs to start with '.' (default: .chkbitignore)"`
-	Workers         int      `short:"w" default:"5" help:"number of workers to use (default: 5)"`
+	Algo            string   `default:"blake3" help:"hash algorithm: md5, sha512, blake3"`
+	IndexName       string   `default:".chkbit" help:"filename where chkbit stores its hashes, needs to start with '.'"`
+	IgnoreName      string   `default:".chkbitignore" help:"filename that chkbit reads its ignore list from, needs to start with '.'"`
+	Workers         int      `short:"w" default:"5" help:"number of workers to use. For slow IO (like on a spinning disk) --workers=1 will be faster."`
 	Plain           bool     `help:"show plain status instead of being fancy" negatable:""`
 	Quiet           bool     `short:"q" help:"quiet, don't show progress/information" negatable:""`
 	Verbose         bool     `short:"v" help:"verbose output" negatable:""`
