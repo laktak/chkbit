@@ -122,6 +122,9 @@ Commands:
   init-db <path> [flags]
     initialize a new index database at the given path for use with --db
 
+  export-db <path> [flags]
+    export a database to a json for archiving
+
   show-ignored-only <paths> ... [flags]
     only show ignored files
 

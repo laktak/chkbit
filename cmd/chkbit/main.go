@@ -67,6 +67,10 @@ type CLI struct {
 		Force bool   `help:"force init if a database already exists"`
 	} `cmd:"" help:"initialize a new index database at the given path for use with --db"`
 
+	ExportDb struct {
+		Path string `arg:"" help:"directory for the database"`
+	} `cmd:"" help:"export a database to a json for archiving"`
+
 	ShowIgnoredOnly struct {
 		Paths []string `arg:""  name:"paths" help:"directories to list"`
 	} `cmd:"" help:"only show ignored files"`
@@ -373,6 +377,13 @@ func (m *Main) run() int {
 	case "init-db <path>":
 		m.log("chkbit init-db " + cli.InitDb.Path)
 		if err := chkbit.InitializeIndexDb(cli.InitDb.Path, cli.IndexName, cli.InitDb.Force); err != nil {
+			fmt.Println("error: " + err.Error())
+			return 1
+		}
+		return 0
+	case "export-db <path>":
+		m.log("chkbit export-db " + cli.ExportDb.Path)
+		if err := chkbit.ExportIndexDb(cli.ExportDb.Path, cli.IndexName); err != nil {
 			fmt.Println("error: " + err.Error())
 			return 1
 		}

@@ -1,6 +1,7 @@
 package chkbit
 
 import (
+	"encoding/json"
 	"errors"
 	"io"
 	"os"
@@ -38,19 +39,8 @@ func (s *store) Open(readOnly bool) error {
 	var err error
 	s.readOnly = readOnly
 	if s.useDb {
-		optR := &bolt.Options{
-			ReadOnly:     true,
-			Timeout:      0,
-			NoGrowSync:   false,
-			FreelistType: bolt.FreelistArrayType,
-		}
-		optW := &bolt.Options{
-			Timeout:      0,
-			NoGrowSync:   false,
-			FreelistType: bolt.FreelistArrayType,
-		}
 		s.dbFile = getDbFile(s.dbPath, s.indexName, "")
-		s.connR, err = bolt.Open(s.dbFile, 0600, optR)
+		s.connR, err = bolt.Open(s.dbFile, 0600, getBoltOptions(true))
 
 		if !readOnly {
 			s.newFile = getDbFile(s.dbPath, s.indexName, newDbSuffix)
@@ -64,7 +54,7 @@ func (s *store) Open(readOnly bool) error {
 				return err
 			}
 
-			s.connW, err = bolt.Open(s.newFile, 0600, optW)
+			s.connW, err = bolt.Open(s.newFile, 0600, getBoltOptions(false))
 			if err == nil {
 				err = s.connW.Update(func(tx *bolt.Tx) error {
 					_, err := tx.CreateBucketIfNotExists([]byte("data"))
@@ -188,6 +178,67 @@ func LocateIndexDb(path, indexName string) (string, error) {
 	}
 }
 
+func ExportIndexDb(path, indexName string) error {
+
+	dbFile := getDbFile(path, indexName, "")
+	connR, err := bolt.Open(dbFile, 0600, getBoltOptions(true))
+	if err != nil {
+		return err
+	}
+
+	file, err := os.Create(getDbFile(path, indexName, ".json"))
+	if err != nil {
+		return err
+	}
+	defer file.Close() // Ensure the file is closed when the function exits
+
+	_, err = file.WriteString("{")
+	if err != nil {
+		return err
+	}
+
+	err = connR.View(func(tx *bolt.Tx) error {
+		b := tx.Bucket([]byte("data"))
+		c := b.Cursor()
+		var ierr error
+		first := true
+		for k, v := c.First(); k != nil; k, v = c.Next() {
+
+			if first {
+				first = false
+			} else {
+				if _, ierr = file.WriteString(","); ierr != nil {
+					break
+				}
+			}
+
+			if idxPath, ierr := json.Marshal(string(k)); ierr == nil {
+				if _, ierr = file.Write(idxPath); ierr != nil {
+					break
+				}
+			} else {
+				break
+			}
+
+			if _, ierr = file.WriteString(":"); ierr != nil {
+				break
+			}
+
+			if _, ierr = file.Write(v); ierr != nil {
+				break
+			}
+		}
+		return ierr
+	})
+
+	_, err = file.WriteString("}")
+	if err != nil {
+		return err
+	}
+
+	return err
+}
+
 func getDbFile(path, indexFilename, suffix string) string {
 	return filepath.Join(path, indexFilename+dbSuffix+suffix)
 }
@@ -216,4 +267,13 @@ func copyFile(src, dst string) error {
 
 	_, err = io.Copy(df, sf)
 	return err
+}
+
+func getBoltOptions(readOnly bool) *bolt.Options {
+	return &bolt.Options{
+		ReadOnly:     readOnly,
+		Timeout:      0,
+		NoGrowSync:   false,
+		FreelistType: bolt.FreelistArrayType,
+	}
 }
