@@ -250,12 +250,14 @@ func (i *Index) save() (bool, error) {
 		if err != nil {
 			return false, err
 		}
-		i.modified = false
 
-		return true, nil
-	} else {
-		return false, nil
+		// only report actual modifications
+		if i.modified {
+			i.modified = false
+			return true, nil
+		}
 	}
+	return false, nil
 }
 
 func (i *Index) load() error {

@@ -51,15 +51,16 @@ func NewContext(numWorkers int, hashAlgo string, indexFilename string, ignoreFil
 	if numWorkers < 1 {
 		return nil, errors.New("expected numWorkers >= 1")
 	}
+	logQueue := make(chan *LogEvent, numWorkers*100)
 	return &Context{
 		NumWorkers:     numWorkers,
 		HashAlgo:       hashAlgo,
 		IndexFilename:  indexFilename,
 		IgnoreFilename: ignoreFilename,
 		WorkQueue:      make(chan *WorkItem, numWorkers*10),
-		LogQueue:       make(chan *LogEvent, numWorkers*100),
+		LogQueue:       logQueue,
 		PerfQueue:      make(chan *PerfEvent, numWorkers*10),
-		store:          &store{},
+		store:          &store{logQueue: logQueue},
 	}, nil
 }
 
@@ -126,7 +127,7 @@ func (context *Context) Process(pathList []string) {
 	context.NumUpd = 0
 	context.NumDel = 0
 
-	err := context.store.Open(!context.UpdateIndex)
+	err := context.store.Open(!context.UpdateIndex, context.NumWorkers)
 	if err != nil {
 		context.logErr("index", err)
 		context.LogQueue <- nil

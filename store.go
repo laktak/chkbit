@@ -5,28 +5,39 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"sync"
+	"time"
 
 	bolt "go.etcd.io/bbolt"
 )
 
+type storeDbItem struct {
+	key   []byte
+	value []byte
+}
+
 type store struct {
-	readOnly   bool
-	useDb      bool
-	refreshDb  bool
-	dirty      bool
-	dbPath     string
-	indexName  string
-	dbFile     string
-	cacheFileR string
-	cacheFileW string
-	connR      *bolt.DB
-	connW      *bolt.DB
+	readOnly     bool
+	useDb        bool
+	refreshDb    bool
+	dirty        bool
+	dbPath       string
+	indexName    string
+	dbFile       string
+	cacheFileR   string
+	cacheFileW   string
+	connR        *bolt.DB
+	connW        *bolt.DB
+	storeDbQueue chan *storeDbItem
+	storeDbWg    sync.WaitGroup
+	logQueue     chan *LogEvent
 }
 
 const (
-	dbSuffix    = "-db"
-	bakDbSuffix = ".bak"
-	newDbSuffix = ".new"
+	dbSuffix       = "-db"
+	bakDbSuffix    = ".bak"
+	newDbSuffix    = ".new"
+	dbTxTimeoutSec = 30
 )
 
 func (s *store) UseDb(path string, indexName string, refresh bool) {
@@ -36,7 +47,11 @@ func (s *store) UseDb(path string, indexName string, refresh bool) {
 	s.refreshDb = refresh
 }
 
-func (s *store) Open(readOnly bool) error {
+func (s *store) logErr(message string) {
+	s.logQueue <- &LogEvent{STATUS_PANIC, "index-db: " + message}
+}
+
+func (s *store) Open(readOnly bool, numWorkers int) error {
 	var err error
 	s.readOnly = readOnly
 	if s.useDb {
@@ -68,6 +83,10 @@ func (s *store) Open(readOnly bool) error {
 			} else {
 				s.connW = s.connR
 			}
+
+			s.storeDbQueue = make(chan *storeDbItem, numWorkers*10)
+			s.storeDbWg.Add(1)
+			go s.storeDbWorker()
 		}
 	}
 
@@ -78,6 +97,11 @@ func (s *store) Finish() (err error) {
 
 	if !s.useDb {
 		return
+	}
+
+	if !s.readOnly {
+		s.storeDbQueue <- nil
+		s.storeDbWg.Wait()
 	}
 
 	if s.connR != nil {
@@ -149,10 +173,7 @@ func (s *store) Save(indexPath string, value []byte) error {
 	var err error
 	s.dirty = true
 	if s.useDb {
-		err = s.connW.Update(func(tx *bolt.Tx) error {
-			b := tx.Bucket([]byte("data"))
-			return b.Put([]byte(indexPath), value)
-		})
+		s.storeDbQueue <- &storeDbItem{[]byte(indexPath), value}
 	} else {
 		// try to preserve the directory mod time but ignore if unsupported
 		dirPath := filepath.Dir(indexPath)
@@ -165,42 +186,45 @@ func (s *store) Save(indexPath string, value []byte) error {
 	return err
 }
 
-func InitializeIndexDb(path, indexName string, force bool) error {
-	fileName := getDbFile(path, indexName, "")
-	_, err := os.Stat(fileName)
-	if !os.IsNotExist(err) {
-		if force {
-			if err := os.Remove(fileName); err != nil {
-				return err
-			}
-		} else {
-			return errors.New("file exists")
-		}
-	}
-	file, err := os.Create(fileName)
-	if err != nil {
-		return err
-	}
-	defer file.Close()
-	_, err = file.WriteString("{}")
-	return err
-}
+func (s *store) storeDbWorker() {
 
-func LocateIndexDb(path, indexName string) (string, error) {
+	var tx *bolt.Tx
+	var b *bolt.Bucket
+	var txExpires time.Time
 	var err error
-	if path, err = filepath.Abs(path); err != nil {
-		return "", err
-	}
-	for {
-		file := getDbFile(path, indexName, "")
-		_, err = os.Stat(file)
-		if !os.IsNotExist(err) {
-			return path, nil
+	defer s.storeDbWg.Done()
+
+	for item := range s.storeDbQueue {
+
+		if item == nil {
+			break
 		}
-		path = filepath.Dir(path)
-		if len(path) < 1 || path[len(path)-1] == filepath.Separator {
-			// reached root
-			return "", errors.New("index db could not be located (forgot to initialize?)")
+
+		if tx != nil && time.Now().After(txExpires) {
+			if err = tx.Commit(); err != nil {
+				break
+			}
+			tx = nil
+		}
+
+		if tx == nil {
+			txExpires = time.Now().Add(dbTxTimeoutSec * time.Second)
+			if tx, err = s.connW.Begin(true); err != nil {
+				break
+			}
+			b = tx.Bucket([]byte("data"))
+		}
+
+		if err = b.Put(item.key, item.value); err != nil {
+			break
+		}
+	}
+
+	if err != nil {
+		s.logErr(err.Error())
+	} else if tx != nil {
+		if err = tx.Commit(); err != nil {
+			s.logErr(err.Error())
 		}
 	}
 }
@@ -383,5 +407,45 @@ func getBoltOptions(readOnly bool) *bolt.Options {
 		Timeout:      0,
 		NoGrowSync:   false,
 		FreelistType: bolt.FreelistArrayType,
+	}
+}
+
+func InitializeIndexDb(path, indexName string, force bool) error {
+	fileName := getDbFile(path, indexName, "")
+	_, err := os.Stat(fileName)
+	if !os.IsNotExist(err) {
+		if force {
+			if err := os.Remove(fileName); err != nil {
+				return err
+			}
+		} else {
+			return errors.New("file exists")
+		}
+	}
+	file, err := os.Create(fileName)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+	_, err = file.WriteString("{}")
+	return err
+}
+
+func LocateIndexDb(path, indexName string) (string, error) {
+	var err error
+	if path, err = filepath.Abs(path); err != nil {
+		return "", err
+	}
+	for {
+		file := getDbFile(path, indexName, "")
+		_, err = os.Stat(file)
+		if !os.IsNotExist(err) {
+			return path, nil
+		}
+		path = filepath.Dir(path)
+		if len(path) < 1 || path[len(path)-1] == filepath.Separator {
+			// reached root
+			return "", errors.New("index db could not be located (forgot to initialize?)")
+		}
 	}
 }
