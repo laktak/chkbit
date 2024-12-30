@@ -250,7 +250,7 @@ func (s *store) exportCache(dbFile, suffix string) error {
 		return err
 	}
 
-	err = connR.View(func(tx *bolt.Tx) error {
+	if err = connR.View(func(tx *bolt.Tx) error {
 		b := tx.Bucket([]byte("data"))
 		c := b.Cursor()
 		var ierr error
@@ -287,7 +287,9 @@ func (s *store) exportCache(dbFile, suffix string) error {
 			}
 		}
 		return ierr
-	})
+	}); err != nil {
+		return err
+	}
 
 	if _, err = file.WriteString(chkbitDbSuffix); err != nil {
 		return err

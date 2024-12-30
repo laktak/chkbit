@@ -108,8 +108,43 @@ type Main struct {
 	bps        *util.RateCalc
 }
 
-func (m *Main) log(text string) {
+func (m *Main) logFile(text string) {
 	m.logger.Println(time.Now().UTC().Format("2006-01-02 15:04:05"), text)
+}
+
+func (m *Main) logInfo(col, text string) {
+	if m.progress != Quiet {
+		if m.progress == Fancy {
+			lterm.Printline(col, text, lterm.Reset)
+		} else {
+			fmt.Println(text)
+		}
+	}
+	m.logFile(text)
+}
+
+func (m *Main) logError(text string) {
+	text = chkbit.STATUS_PANIC.String() + " " + text
+
+	if m.progress == Fancy {
+		lterm.Write(termAlertFG)
+		fmt.Fprintln(os.Stderr, text)
+		lterm.Write(lterm.Reset)
+	} else {
+		fmt.Fprintln(os.Stderr, text)
+	}
+
+	m.logFile(text)
+}
+
+func (m *Main) printError(text string) {
+	if m.progress == Fancy {
+		lterm.Write(termAlertFG)
+		fmt.Fprintln(os.Stderr, text)
+		lterm.Write(lterm.Reset)
+	} else {
+		fmt.Fprintln(os.Stderr, text)
+	}
 }
 
 func (m *Main) logStatus(stat chkbit.Status, message string) bool {
@@ -124,7 +159,7 @@ func (m *Main) logStatus(stat chkbit.Status, message string) bool {
 	}
 
 	if m.logVerbose || !stat.IsVerbose() {
-		m.log(stat.String() + " " + message)
+		m.logFile(stat.String() + " " + message)
 	}
 
 	if m.verbose || !stat.IsVerbose() {
@@ -203,17 +238,17 @@ func (m *Main) process(cmd Command, cli CLI) (bool, error) {
 	switch cmd {
 	case Check:
 		pathList = cli.Check.Paths
-		m.log("chkbit check " + strings.Join(pathList, ", "))
+		m.logFile("chkbit check " + strings.Join(pathList, ", "))
 	case Update:
 		pathList = cli.Update.Paths
 		m.context.UpdateIndex = true
 		m.context.AddOnly = cli.Update.AddOnly
 		m.context.ForceUpdateDmg = cli.Update.Force
-		m.log("chkbit update " + strings.Join(pathList, ", "))
+		m.logFile("chkbit update " + strings.Join(pathList, ", "))
 	case Show:
 		pathList = cli.ShowIgnoredOnly.Paths
 		m.context.ShowIgnoredOnly = true
-		m.log("chkbit show-ignored-only " + strings.Join(pathList, ", "))
+		m.logFile("chkbit show-ignored-only " + strings.Join(pathList, ", "))
 	}
 
 	m.context.ShowMissing = cli.ShowMissing
@@ -228,10 +263,7 @@ func (m *Main) process(cmd Command, cli CLI) (bool, error) {
 		if err == nil {
 			// pathList is relative to root
 			err = os.Chdir(root)
-			if m.progress != Quiet {
-				fmt.Println("Using indexdb in " + root)
-			}
-			m.log("using indexdb in " + root)
+			m.logInfo("", "Using indexdb in "+root)
 		}
 		if err != nil {
 			return false, err
@@ -251,81 +283,58 @@ func (m *Main) process(cmd Command, cli CLI) (bool, error) {
 }
 
 func (m *Main) printResult() error {
-	cprint := func(col, text string) {
-		if m.progress != Quiet {
-			if m.progress == Fancy {
-				lterm.Printline(col, text, lterm.Reset)
-			} else {
-				fmt.Println(text)
-			}
-		}
-	}
-
-	eprint := func(col, text string) {
-		if m.progress == Fancy {
-			lterm.Write(col)
-			fmt.Fprintln(os.Stderr, text)
-			lterm.Write(lterm.Reset)
-		} else {
-			fmt.Fprintln(os.Stderr, text)
-		}
-	}
 
 	if m.progress != Quiet {
 		mode := ""
 		if !m.context.UpdateIndex {
 			mode = " in readonly mode"
 		}
-		status := fmt.Sprintf("Processed %s%s.", util.LangNum1MutateSuffix(m.context.NumTotal, "file"), mode)
-		cprint(termOKFG, status)
-		m.log(status)
+		status := fmt.Sprintf("Processed %s%s", util.LangNum1MutateSuffix(m.context.NumTotal, "file"), mode)
+		m.logInfo(termOKFG, status)
 
 		if m.progress == Fancy && m.context.NumTotal > 0 {
 			elapsed := time.Since(m.fps.Start)
 			elapsedS := elapsed.Seconds()
-			fmt.Println("-", elapsed.Truncate(time.Second), "elapsed")
-			fmt.Printf("- %.2f files/second\n", (float64(m.fps.Total)+float64(m.fps.Current))/elapsedS)
-			fmt.Printf("- %.2f MB/second\n", (float64(m.bps.Total)+float64(m.bps.Current))/float64(sizeMB)/elapsedS)
+			m.logInfo("", fmt.Sprintf("- %s elapsed", elapsed.Truncate(time.Second)))
+			m.logInfo("", fmt.Sprintf("- %.2f files/second", (float64(m.fps.Total)+float64(m.fps.Current))/elapsedS))
+			m.logInfo("", fmt.Sprintf("- %.2f MB/second", (float64(m.bps.Total)+float64(m.bps.Current))/float64(sizeMB)/elapsedS))
 		}
 
-		del := ""
 		if m.context.UpdateIndex {
 			if m.context.NumIdxUpd > 0 {
+				m.logInfo(termOKFG, fmt.Sprintf("- %s updated", util.LangNum1Choice(m.context.NumIdxUpd, "directory was", "directories were")))
+				m.logInfo(termOKFG, fmt.Sprintf("- %s added", util.LangNum1Choice(m.context.NumNew, "file hash was", "file hashes were")))
+				m.logInfo(termOKFG, fmt.Sprintf("- %s updated", util.LangNum1Choice(m.context.NumUpd, "file hash was", "file hashes were")))
 				if m.context.NumDel > 0 {
-					del = fmt.Sprintf("\n- %s been removed", util.LangNum1Choice(m.context.NumDel, "file/directory has", "files/directories have"))
+					m.logInfo(termOKFG, fmt.Sprintf("- %s been removed", util.LangNum1Choice(m.context.NumDel, "file/directory has", "files/directories have")))
 				}
-				cprint(termOKFG, fmt.Sprintf("- %s updated\n- %s added\n- %s updated%s",
-					util.LangNum1Choice(m.context.NumIdxUpd, "directory was", "directories were"),
-					util.LangNum1Choice(m.context.NumNew, "file hash was", "file hashes were"),
-					util.LangNum1Choice(m.context.NumUpd, "file hash was", "file hashes were"),
-					del))
 			}
 		} else if m.context.NumNew+m.context.NumUpd+m.context.NumDel > 0 {
+			m.logInfo(termAlertFG, "No changes were made")
+			m.logInfo(termAlertFG, fmt.Sprintf("- %s would have been added", util.LangNum1MutateSuffix(m.context.NumNew, "file")))
+			m.logInfo(termAlertFG, fmt.Sprintf("- %s would have been updated", util.LangNum1MutateSuffix(m.context.NumUpd, "file")))
 			if m.context.NumDel > 0 {
-				del = fmt.Sprintf("\n- %s would have been removed", util.LangNum1Choice(m.context.NumDel, "file/directory", "files/directories"))
+				m.logInfo(termAlertFG, fmt.Sprintf("- %s would have been removed", util.LangNum1Choice(m.context.NumDel, "file/directory", "files/directories")))
 			}
-			cprint(termAlertFG, fmt.Sprintf("No changes were made:\n- %s would have been added\n- %s would have been updated%s",
-				util.LangNum1MutateSuffix(m.context.NumNew, "file"),
-				util.LangNum1MutateSuffix(m.context.NumUpd, "file"),
-				del))
 		}
 	}
 
+	// summarize errors
 	if len(m.dmgList) > 0 {
-		eprint(termAlertFG, "chkbit detected damage in these files:")
+		m.printError("chkbit detected damage in these files:")
 		for _, err := range m.dmgList {
 			fmt.Fprintln(os.Stderr, err)
 		}
 		n := len(m.dmgList)
 		status := fmt.Sprintf("error: detected %s with damage!", util.LangNum1MutateSuffix(n, "file"))
-		m.log(status)
-		eprint(termAlertFG, status)
+		m.logFile(status)
+		m.printError(status)
 	}
 
 	if len(m.errList) > 0 {
 		status := "chkbit ran into errors"
-		m.log(status + "!")
-		eprint(termAlertFG, status+":")
+		m.logFile(status + "!")
+		m.printError(status + ":")
 		for _, err := range m.errList {
 			fmt.Fprintln(os.Stderr, err)
 		}
@@ -368,6 +377,16 @@ func (m *Main) run() int {
 		)
 	}
 
+	if cli.Quiet {
+		m.progress = Quiet
+	} else if fileInfo, _ := os.Stdout.Stat(); (fileInfo.Mode() & os.ModeCharDevice) == 0 {
+		m.progress = Summary
+	} else if cli.Plain {
+		m.progress = Plain
+	} else {
+		m.progress = Fancy
+	}
+
 	switch ctx.Command() {
 	case "check <paths>":
 		cmd = Check
@@ -376,9 +395,9 @@ func (m *Main) run() int {
 	case "show-ignored-only <paths>":
 		cmd = Show
 	case "init-db <path>":
-		m.log("chkbit init-db " + cli.InitDb.Path)
+		m.logInfo("", "chkbit init-db "+cli.InitDb.Path)
 		if err := chkbit.InitializeIndexDb(cli.InitDb.Path, cli.IndexName, cli.InitDb.Force); err != nil {
-			fmt.Println("error: " + err.Error())
+			m.logError(err.Error())
 			return 1
 		}
 		return 0
@@ -404,16 +423,6 @@ func (m *Main) run() int {
 		}
 		defer f.Close()
 		m.logger = log.New(f, "", 0)
-	}
-
-	if cli.Quiet {
-		m.progress = Quiet
-	} else if fileInfo, _ := os.Stdout.Stat(); (fileInfo.Mode() & os.ModeCharDevice) == 0 {
-		m.progress = Summary
-	} else if cli.Plain {
-		m.progress = Plain
-	} else {
-		m.progress = Fancy
 	}
 
 	if showRes, err := m.process(cmd, cli); err == nil {
