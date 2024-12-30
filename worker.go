@@ -17,7 +17,7 @@ func (context *Context) runWorker(id int) {
 		index := newIndex(context, item.path, item.filesToIndex, item.dirList, !context.UpdateIndex)
 		err := index.load()
 		if err != nil {
-			context.log(STATUS_PANIC, index.getIndexFilepath()+": "+err.Error())
+			context.logErr(index.getIndexFilepath(), err)
 		}
 
 		if context.ShowIgnoredOnly {

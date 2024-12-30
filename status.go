@@ -3,16 +3,19 @@ package chkbit
 type Status string
 
 const (
-	STATUS_PANIC        Status = "EXC"
-	STATUS_ERR_IDX      Status = "EIX"
-	STATUS_ERR_DMG      Status = "DMG"
-	STATUS_UPDATE_INDEX Status = "iup"
-	STATUS_UP_WARN_OLD  Status = "old"
-	STATUS_UPDATE       Status = "upd"
-	STATUS_NEW          Status = "new"
-	STATUS_OK           Status = "ok "
-	STATUS_IGNORE       Status = "ign"
-	STATUS_MISSING      Status = "del"
+	STATUS_PANIC       Status = "EXC"
+	STATUS_ERR_IDX     Status = "ERX"
+	STATUS_ERR_DMG     Status = "DMG"
+	STATUS_UP_WARN_OLD Status = "old"
+	STATUS_UPDATE      Status = "upd"
+	STATUS_NEW         Status = "new"
+	STATUS_OK          Status = "ok "
+	STATUS_IGNORE      Status = "ign"
+	STATUS_MISSING     Status = "del"
+	STATUS_INFO        Status = "msg"
+
+	// internal
+	STATUS_UPDATE_INDEX Status = "xup"
 )
 
 func (s Status) String() string {

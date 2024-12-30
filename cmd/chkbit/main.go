@@ -128,6 +128,11 @@ func (m *Main) logStatus(stat chkbit.Status, message string) bool {
 	}
 
 	if m.verbose || !stat.IsVerbose() {
+
+		if m.progress == Quiet && stat == chkbit.STATUS_INFO {
+			return false
+		}
+
 		col := ""
 		if stat.IsErrorOrWarning() {
 			col = termAlertFG

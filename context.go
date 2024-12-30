@@ -87,16 +87,13 @@ func (context *Context) log(stat Status, message string) {
 		}
 	case STATUS_MISSING:
 		context.NumDel++
-		//case STATUS_PANIC:
-		//case STATUS_ERR_IDX:
-		//case STATUS_IGNORE:
 	}
 
 	context.LogQueue <- &LogEvent{stat, message}
 }
 
 func (context *Context) logErr(path string, err error) {
-	context.LogQueue <- &LogEvent{STATUS_PANIC, path + ": " + err.Error()}
+	context.log(STATUS_PANIC, path+": "+err.Error())
 }
 
 func (context *Context) perfMonFiles(numFiles int64) {
@@ -152,8 +149,10 @@ func (context *Context) Process(pathList []string) {
 	}()
 	wg.Wait()
 
-	if err := context.store.Finish(); err != nil {
+	if updated, err := context.store.Finish(); err != nil {
 		context.logErr("index", err)
+	} else if updated {
+		context.log(STATUS_INFO, "The index db was updated")
 	}
 	context.LogQueue <- nil
 }

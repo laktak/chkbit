@@ -93,7 +93,7 @@ func (s *store) Open(readOnly bool, numWorkers int) error {
 	return err
 }
 
-func (s *store) Finish() (err error) {
+func (s *store) Finish() (updated bool, err error) {
 
 	if !s.useDb {
 		return
@@ -141,6 +141,7 @@ func (s *store) Finish() (err error) {
 		if s.cacheFileW != "" {
 			os.Remove(s.cacheFileW)
 		}
+		updated = true
 	}
 	return
 }
