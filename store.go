@@ -38,6 +38,8 @@ const (
 	bakDbSuffix    = ".bak"
 	newDbSuffix    = ".new"
 	dbTxTimeoutSec = 30
+	chkbitDbPrefix = `{"type":"chkbit","version":6,"data":{`
+	chkbitDbSuffix = `}}`
 )
 
 func (s *store) UseDb(path string, indexName string, refresh bool) {
@@ -244,7 +246,7 @@ func (s *store) exportCache(dbFile, suffix string) error {
 	defer file.Close()
 
 	// export version 6 database
-	if _, err = file.WriteString(`{"type":"chkbit","version":6,"data":{`); err != nil {
+	if _, err = file.WriteString(chkbitDbPrefix); err != nil {
 		return err
 	}
 
@@ -287,7 +289,7 @@ func (s *store) exportCache(dbFile, suffix string) error {
 		return ierr
 	})
 
-	if _, err = file.WriteString("}}"); err != nil {
+	if _, err = file.WriteString(chkbitDbSuffix); err != nil {
 		return err
 	}
 
@@ -428,7 +430,7 @@ func InitializeIndexDb(path, indexName string, force bool) error {
 		return err
 	}
 	defer file.Close()
-	_, err = file.WriteString("{}")
+	_, err = file.WriteString(chkbitDbPrefix + chkbitDbSuffix)
 	return err
 }
 
