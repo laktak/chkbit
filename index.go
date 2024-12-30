@@ -74,7 +74,7 @@ func (i *Index) getIndexFilepath() string {
 }
 
 func (i *Index) logFilePanic(name string, message string) {
-	i.context.log(STATUS_PANIC, filepath.Join(i.path, name)+": "+message)
+	i.context.log(StatusPanic, filepath.Join(i.path, name)+": "+message)
 }
 
 func (i *Index) logFile(stat Status, name string) {
@@ -89,7 +89,7 @@ func (i *Index) calcHashes(ignore *Ignore) {
 	for _, name := range i.files {
 		if ignore.shouldIgnore(name) {
 			if !ignore.context.isChkbitFile(name) {
-				i.logFile(STATUS_IGNORE, name)
+				i.logFile(StatusIgnore, name)
 			}
 			continue
 		}
@@ -135,7 +135,7 @@ func (i *Index) calcHashes(ignore *Ignore) {
 func (i *Index) showIgnoredOnly(ignore *Ignore) {
 	for _, name := range i.files {
 		if ignore.shouldIgnore(name) {
-			i.logFile(STATUS_IGNORE, name)
+			i.logFile(StatusIgnore, name)
 		}
 	}
 }
@@ -143,13 +143,13 @@ func (i *Index) showIgnoredOnly(ignore *Ignore) {
 func (i *Index) checkFix(forceUpdateDmg bool) {
 	for name, b := range i.new {
 		if a, ok := i.cur[name]; !ok {
-			i.logFile(STATUS_NEW, name)
+			i.logFile(StatusNew, name)
 			i.modified = true
 		} else {
 			amod := int64(a.ModTime)
 			bmod := int64(b.ModTime)
 			if a.Hash != nil && b.Hash != nil && *a.Hash == *b.Hash {
-				i.logFile(STATUS_OK, name)
+				i.logFile(StatusOK, name)
 				if amod != bmod {
 					i.modified = true
 				}
@@ -157,7 +157,7 @@ func (i *Index) checkFix(forceUpdateDmg bool) {
 			}
 
 			if amod == bmod {
-				i.logFile(STATUS_ERR_DMG, name)
+				i.logFile(StatusErrorDamage, name)
 				if !forceUpdateDmg {
 					// keep DMG entry
 					i.new[name] = a
@@ -165,10 +165,10 @@ func (i *Index) checkFix(forceUpdateDmg bool) {
 					i.modified = true
 				}
 			} else if amod < bmod {
-				i.logFile(STATUS_UPDATE, name)
+				i.logFile(StatusUpdate, name)
 				i.modified = true
 			} else if amod > bmod {
-				i.logFile(STATUS_UP_WARN_OLD, name)
+				i.logFile(StatusUpdateWarnOld, name)
 				i.modified = true
 			}
 		}
@@ -178,7 +178,7 @@ func (i *Index) checkFix(forceUpdateDmg bool) {
 		if _, ok := i.new[name]; !ok {
 			i.modified = true
 			if i.context.ShowMissing {
-				i.logFile(STATUS_MISSING, name)
+				i.logFile(StatusMissing, name)
 			}
 		}
 	}
@@ -192,7 +192,7 @@ func (i *Index) checkFix(forceUpdateDmg bool) {
 		if !m[name] {
 			i.modified = true
 			if i.context.ShowMissing {
-				i.logDir(STATUS_MISSING, name+"/")
+				i.logDir(StatusMissing, name+"/")
 			}
 		}
 	}
@@ -284,7 +284,7 @@ func (i *Index) load() error {
 		}
 		if data.IdxHash != hashMd5(text) {
 			i.modified = true
-			i.logFile(STATUS_ERR_IDX, i.getIndexFilepath())
+			i.logFile(StatusErrorIdx, i.getIndexFilepath())
 		}
 	} else {
 		var data1 indexFile1

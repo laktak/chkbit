@@ -3,19 +3,19 @@ package chkbit
 type Status string
 
 const (
-	STATUS_PANIC       Status = "EXC"
-	STATUS_ERR_IDX     Status = "ERX"
-	STATUS_ERR_DMG     Status = "DMG"
-	STATUS_UP_WARN_OLD Status = "old"
-	STATUS_UPDATE      Status = "upd"
-	STATUS_NEW         Status = "new"
-	STATUS_OK          Status = "ok "
-	STATUS_IGNORE      Status = "ign"
-	STATUS_MISSING     Status = "del"
-	STATUS_INFO        Status = "msg"
+	StatusPanic         Status = "EXC"
+	StatusErrorIdx      Status = "ERX"
+	StatusErrorDamage   Status = "DMG"
+	StatusUpdateWarnOld Status = "old"
+	StatusUpdate        Status = "upd"
+	StatusNew           Status = "new"
+	StatusOK            Status = "ok "
+	StatusIgnore        Status = "ign"
+	StatusMissing       Status = "del"
+	StatusInfo          Status = "msg"
 
 	// internal
-	STATUS_UPDATE_INDEX Status = "xup"
+	StatusUpdateIndex Status = "xup"
 )
 
 func (s Status) String() string {
@@ -23,11 +23,11 @@ func (s Status) String() string {
 }
 
 func (s Status) IsErrorOrWarning() bool {
-	return s == STATUS_PANIC || s == STATUS_ERR_DMG || s == STATUS_ERR_IDX || s == STATUS_UP_WARN_OLD
+	return s == StatusPanic || s == StatusErrorDamage || s == StatusErrorIdx || s == StatusUpdateWarnOld
 }
 
 func (s Status) IsVerbose() bool {
-	return s == STATUS_OK || s == STATUS_IGNORE
+	return s == StatusOK || s == StatusIgnore
 }
 
 type LogEvent struct {

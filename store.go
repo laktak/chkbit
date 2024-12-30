@@ -50,7 +50,7 @@ func (s *store) UseDb(path string, indexName string, refresh bool) {
 }
 
 func (s *store) logErr(message string) {
-	s.logQueue <- &LogEvent{STATUS_PANIC, "index-db: " + message}
+	s.logQueue <- &LogEvent{StatusPanic, "index-db: " + message}
 }
 
 func (s *store) Open(readOnly bool, numWorkers int) error {

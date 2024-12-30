@@ -124,7 +124,7 @@ func (m *Main) logInfo(col, text string) {
 }
 
 func (m *Main) logError(text string) {
-	text = chkbit.STATUS_PANIC.String() + " " + text
+	text = chkbit.StatusPanic.String() + " " + text
 
 	if m.progress == Fancy {
 		lterm.Write(termAlertFG)
@@ -148,13 +148,13 @@ func (m *Main) printError(text string) {
 }
 
 func (m *Main) logStatus(stat chkbit.Status, message string) bool {
-	if stat == chkbit.STATUS_UPDATE_INDEX {
+	if stat == chkbit.StatusUpdateIndex {
 		return false
 	}
 
-	if stat == chkbit.STATUS_ERR_DMG {
+	if stat == chkbit.StatusErrorDamage {
 		m.dmgList = append(m.dmgList, message)
-	} else if stat == chkbit.STATUS_PANIC {
+	} else if stat == chkbit.StatusPanic {
 		m.errList = append(m.errList, message)
 	}
 
@@ -164,7 +164,7 @@ func (m *Main) logStatus(stat chkbit.Status, message string) bool {
 
 	if m.verbose || !stat.IsVerbose() {
 
-		if m.progress == Quiet && stat == chkbit.STATUS_INFO {
+		if m.progress == Quiet && stat == chkbit.StatusInfo {
 			return false
 		}
 
@@ -259,11 +259,11 @@ func (m *Main) process(cmd Command, cli CLI) (bool, error) {
 
 	if cli.Db {
 		var root string
-		root, pathList, err = m.context.UseIndexDb(pathList)
+		root, pathList, err = m.context.UseStoreDb(pathList)
 		if err == nil {
 			// pathList is relative to root
 			err = os.Chdir(root)
-			m.logInfo("", "Using indexdb in "+root)
+			m.logInfo("", "Using store-db in "+root)
 		}
 		if err != nil {
 			return false, err

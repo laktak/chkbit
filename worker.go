@@ -30,7 +30,7 @@ func (context *Context) runWorker(id int) {
 				if changed, err := index.save(); err != nil {
 					context.logErr(item.path, err)
 				} else if changed {
-					context.log(STATUS_UPDATE_INDEX, "")
+					context.log(StatusUpdateIndex, "")
 				}
 			}
 		}

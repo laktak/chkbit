@@ -68,24 +68,24 @@ func (context *Context) log(stat Status, message string) {
 	context.mutex.Lock()
 	defer context.mutex.Unlock()
 	switch stat {
-	case STATUS_ERR_DMG:
+	case StatusErrorDamage:
 		context.NumTotal++
-	case STATUS_UPDATE_INDEX:
+	case StatusUpdateIndex:
 		context.NumIdxUpd++
-	case STATUS_UP_WARN_OLD:
+	case StatusUpdateWarnOld:
 		context.NumTotal++
 		context.NumUpd++
-	case STATUS_UPDATE:
+	case StatusUpdate:
 		context.NumTotal++
 		context.NumUpd++
-	case STATUS_NEW:
+	case StatusNew:
 		context.NumTotal++
 		context.NumNew++
-	case STATUS_OK:
+	case StatusOK:
 		if !context.AddOnly {
 			context.NumTotal++
 		}
-	case STATUS_MISSING:
+	case StatusMissing:
 		context.NumDel++
 	}
 
@@ -93,7 +93,7 @@ func (context *Context) log(stat Status, message string) {
 }
 
 func (context *Context) logErr(path string, err error) {
-	context.log(STATUS_PANIC, path+": "+err.Error())
+	context.log(StatusPanic, path+": "+err.Error())
 }
 
 func (context *Context) perfMonFiles(numFiles int64) {
@@ -152,7 +152,7 @@ func (context *Context) Process(pathList []string) {
 	if updated, err := context.store.Finish(); err != nil {
 		context.logErr("index", err)
 	} else if updated {
-		context.log(STATUS_INFO, "The index db was updated")
+		context.log(StatusInfo, "The index db was updated")
 	}
 	context.LogQueue <- nil
 }
@@ -193,7 +193,7 @@ func (context *Context) scanDir(root string, parentIgnore *Ignore) {
 			if !ignore.shouldIgnore(file.Name()) {
 				dirList = append(dirList, file.Name())
 			} else {
-				context.log(STATUS_IGNORE, file.Name()+"/")
+				context.log(StatusIgnore, file.Name()+"/")
 			}
 		} else if file.Type().IsRegular() {
 			filesToIndex = append(filesToIndex, file.Name())
@@ -209,7 +209,7 @@ func (context *Context) scanDir(root string, parentIgnore *Ignore) {
 	}
 }
 
-func (context *Context) UseIndexDb(pathList []string) (root string, relativePathList []string, err error) {
+func (context *Context) UseStoreDb(pathList []string) (root string, relativePathList []string, err error) {
 
 	if len(pathList) == 0 {
 		return "", nil, errors.New("missing path(s)")
@@ -225,7 +225,7 @@ func (context *Context) UseIndexDb(pathList []string) (root string, relativePath
 
 			// below root?
 			if !strings.HasPrefix(path, root) {
-				return "", nil, fmt.Errorf("path %s is not below the indexdb in %s", path, root)
+				return "", nil, fmt.Errorf("path %s is not below the store-db in %s", path, root)
 			}
 
 			relativePath, err := filepath.Rel(root, path)
