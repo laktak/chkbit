@@ -3,7 +3,6 @@ package chkbit
 import (
 	"encoding/json"
 	"errors"
-	"io"
 	"os"
 	"path/filepath"
 
@@ -11,15 +10,17 @@ import (
 )
 
 type store struct {
-	readOnly  bool
-	useDb     bool
-	refreshDb bool
-	dbPath    string
-	indexName string
-	dbFile    string
-	newFile   string
-	connR     *bolt.DB
-	connW     *bolt.DB
+	readOnly   bool
+	useDb      bool
+	refreshDb  bool
+	dirty      bool
+	dbPath     string
+	indexName  string
+	dbFile     string
+	cacheFileR string
+	cacheFileW string
+	connR      *bolt.DB
+	connW      *bolt.DB
 }
 
 const (
@@ -40,56 +41,84 @@ func (s *store) Open(readOnly bool) error {
 	s.readOnly = readOnly
 	if s.useDb {
 		s.dbFile = getDbFile(s.dbPath, s.indexName, "")
-		s.connR, err = bolt.Open(s.dbFile, 0600, getBoltOptions(true))
+
+		if s.cacheFileR, err = getTempDbFile(s.indexName); err != nil {
+			return err
+		}
+		if err = s.importCache(s.cacheFileR); err != nil {
+			return err
+		}
+		if s.connR, err = bolt.Open(s.cacheFileR, 0600, getBoltOptions(false)); err != nil {
+			return err
+		}
 
 		if !readOnly {
-			s.newFile = getDbFile(s.dbPath, s.indexName, newDbSuffix)
-
 			if s.refreshDb {
-				err = clearFile(s.newFile)
-			} else {
-				err = copyFile(s.dbFile, s.newFile)
-			}
-			if err != nil {
-				return err
-			}
-
-			s.connW, err = bolt.Open(s.newFile, 0600, getBoltOptions(false))
-			if err == nil {
-				err = s.connW.Update(func(tx *bolt.Tx) error {
-					_, err := tx.CreateBucketIfNotExists([]byte("data"))
+				// write to a new db
+				if s.cacheFileW, err = getTempDbFile(s.indexName); err != nil {
 					return err
-				})
+				}
+				s.connW, err = bolt.Open(s.cacheFileW, 0600, getBoltOptions(false))
+				if err == nil {
+					err = s.connW.Update(func(tx *bolt.Tx) error {
+						_, err := tx.CreateBucketIfNotExists([]byte("data"))
+						return err
+					})
+				}
+			} else {
+				s.connW = s.connR
 			}
 		}
 	}
+
 	return err
 }
 
-func (s *store) Close() {
-	if s.useDb {
-		if s.connW != nil {
-			s.connW.Close()
-		}
-		if s.connR != nil {
-			s.connR.Close()
-		}
-	}
-}
+func (s *store) Finish() (err error) {
 
-func (s *store) Finish() error {
-	if s.useDb && !s.readOnly {
-		bakFile := getDbFile(s.dbPath, s.indexName, bakDbSuffix)
-		err := os.Rename(s.dbFile, bakFile)
-		if err != nil {
-			return err
+	if !s.useDb {
+		return
+	}
+
+	if s.connR != nil {
+		if err = s.connR.Close(); err != nil {
+			return
 		}
-		err = os.Rename(s.newFile, s.dbFile)
-		if err != nil {
-			return err
+		if !s.readOnly && s.refreshDb {
+			if err = s.connW.Close(); err != nil {
+				return
+			}
 		}
 	}
-	return nil
+	s.connR = nil
+	s.connW = nil
+
+	if !s.readOnly && s.dirty {
+
+		cacheFile := s.cacheFileR
+		if s.cacheFileW != "" {
+			cacheFile = s.cacheFileW
+		}
+
+		if err = s.exportCache(cacheFile, newDbSuffix); err != nil {
+			return
+		}
+
+		if err = os.Rename(s.dbFile, getDbFile(s.dbPath, s.indexName, bakDbSuffix)); err != nil {
+			return
+		}
+		if err = os.Rename(getDbFile(s.dbPath, s.indexName, newDbSuffix), s.dbFile); err != nil {
+			return
+		}
+
+		if s.cacheFileR != "" {
+			os.Remove(s.cacheFileR)
+		}
+		if s.cacheFileW != "" {
+			os.Remove(s.cacheFileW)
+		}
+	}
+	return
 }
 
 func (s *store) Load(indexPath string) ([]byte, error) {
@@ -118,6 +147,7 @@ func (s *store) Load(indexPath string) ([]byte, error) {
 
 func (s *store) Save(indexPath string, value []byte) error {
 	var err error
+	s.dirty = true
 	if s.useDb {
 		err = s.connW.Update(func(tx *bolt.Tx) error {
 			b := tx.Bucket([]byte("data"))
@@ -136,27 +166,24 @@ func (s *store) Save(indexPath string, value []byte) error {
 }
 
 func InitializeIndexDb(path, indexName string, force bool) error {
-	file := getDbFile(path, indexName, "")
-	_, err := os.Stat(file)
+	fileName := getDbFile(path, indexName, "")
+	_, err := os.Stat(fileName)
 	if !os.IsNotExist(err) {
 		if force {
-			err := os.Remove(file)
-			if err != nil {
+			if err := os.Remove(fileName); err != nil {
 				return err
 			}
 		} else {
 			return errors.New("file exists")
 		}
-
 	}
-	conn, err := bolt.Open(file, 0600, nil)
+	file, err := os.Create(fileName)
 	if err != nil {
 		return err
 	}
-	return conn.Update(func(tx *bolt.Tx) error {
-		_, err := tx.CreateBucketIfNotExists([]byte("data"))
-		return err
-	})
+	defer file.Close()
+	_, err = file.WriteString("{}")
+	return err
 }
 
 func LocateIndexDb(path, indexName string) (string, error) {
@@ -178,23 +205,21 @@ func LocateIndexDb(path, indexName string) (string, error) {
 	}
 }
 
-func ExportIndexDb(path, indexName string) error {
-
-	dbFile := getDbFile(path, indexName, "")
+func (s *store) exportCache(dbFile, suffix string) error {
 	connR, err := bolt.Open(dbFile, 0600, getBoltOptions(true))
 	if err != nil {
 		return err
 	}
 	defer connR.Close()
 
-	file, err := os.Create(getDbFile(path, indexName, ".json"))
+	file, err := os.Create(getDbFile(s.dbPath, s.indexName, suffix))
 	if err != nil {
 		return err
 	}
 	defer file.Close()
 
-	_, err = file.WriteString(`{"type":"chkbit","version":6,"data":{`)
-	if err != nil {
+	// export version 6 database
+	if _, err = file.WriteString(`{"type":"chkbit","version":6,"data":{`); err != nil {
 		return err
 	}
 
@@ -213,7 +238,12 @@ func ExportIndexDb(path, indexName string) error {
 				}
 			}
 
-			if idxPath, ierr := json.Marshal(string(k)); ierr == nil {
+			// remove index filename
+			key := filepath.Dir(string(k))
+			if key == "." {
+				key = ""
+			}
+			if idxPath, ierr := json.Marshal(key); ierr == nil {
 				if _, ierr = file.Write(idxPath); ierr != nil {
 					break
 				}
@@ -232,9 +262,104 @@ func ExportIndexDb(path, indexName string) error {
 		return ierr
 	})
 
-	_, err = file.WriteString("}}")
+	if _, err = file.WriteString("}}"); err != nil {
+		return err
+	}
+
+	return err
+}
+
+func (s *store) importCache(dbFile string) error {
+
+	connW, err := bolt.Open(dbFile, 0600, getBoltOptions(false))
 	if err != nil {
 		return err
+	}
+	defer connW.Close()
+	if err = connW.Update(func(tx *bolt.Tx) error {
+		_, err = tx.CreateBucketIfNotExists([]byte("data"))
+		return err
+	}); err != nil {
+		return err
+	}
+
+	file, err := os.Open(getDbFile(s.dbPath, s.indexName, ""))
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	decoder := json.NewDecoder(file)
+
+	if t, err := decoder.Token(); err != nil || t != json.Delim('{') {
+		return errors.New("invalid json (start)")
+	}
+
+	// we only accept our fixed json, in this order:
+
+	// type: chkbit
+	var jsonType string
+	if t, err := decoder.Token(); err != nil || t != "type" {
+		return errors.New("invalid json (type)")
+	}
+	if err := decoder.Decode(&jsonType); err != nil || jsonType != "chkbit" {
+		return errors.New("invalid json (chkbit)")
+	}
+
+	// version: 6
+	var jsonVersion int
+	if t, err := decoder.Token(); err != nil || t != "version" {
+		return errors.New("invalid json (version)")
+	}
+	if err := decoder.Decode(&jsonVersion); err != nil || jsonVersion != 6 {
+		return errors.New("invalid json (version 6)")
+	}
+
+	// data:
+	if t, err := decoder.Token(); err != nil || t != "data" {
+		return errors.New("invalid json (data)")
+	}
+	if t, err := decoder.Token(); err != nil || t != json.Delim('{') {
+		return errors.New("invalid json (data start)")
+	}
+
+	if err = connW.Update(func(tx *bolt.Tx) error {
+		for {
+			t, err := decoder.Token()
+			if err != nil {
+				return err
+			}
+			if t == json.Delim('}') {
+				break
+			}
+			key, ok := t.(string)
+			if !ok {
+				return errors.New("invalid json (loop)")
+			}
+
+			// append index filename for compability with file based version
+			if key != "" {
+				key += "/"
+			}
+			key += s.indexName
+
+			var value json.RawMessage
+			if err = decoder.Decode(&value); err != nil {
+				return err
+			}
+
+			b := tx.Bucket([]byte("data"))
+			if err = b.Put([]byte(key), value); err != nil {
+				return err
+			}
+		}
+		return nil
+	}); err != nil {
+		return err
+	}
+
+	if t, err := decoder.Token(); err != nil || t != json.Delim('}') {
+		return errors.New("invalid json (end)")
 	}
 
 	return err
@@ -244,30 +369,12 @@ func getDbFile(path, indexFilename, suffix string) string {
 	return filepath.Join(path, indexFilename+dbSuffix+suffix)
 }
 
-func clearFile(file string) error {
-	_, err := os.Stat(file)
-	if os.IsNotExist(err) {
-		return nil
+func getTempDbFile(indexFilename string) (string, error) {
+	tempFile, err := os.CreateTemp("", "*"+indexFilename)
+	if err == nil {
+		tempFile.Close()
 	}
-	return os.Remove(file)
-}
-
-func copyFile(src, dst string) error {
-
-	sf, err := os.Open(src)
-	if err != nil {
-		return err
-	}
-	defer sf.Close()
-
-	df, err := os.Create(dst)
-	if err != nil {
-		return err
-	}
-	defer df.Close()
-
-	_, err = io.Copy(df, sf)
-	return err
+	return tempFile.Name(), err
 }
 
 func getBoltOptions(readOnly bool) *bolt.Options {

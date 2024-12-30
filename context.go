@@ -132,7 +132,6 @@ func (context *Context) Process(pathList []string) {
 		context.LogQueue <- nil
 		return
 	}
-	defer context.store.Close()
 
 	var wg sync.WaitGroup
 	wg.Add(context.NumWorkers)
@@ -152,8 +151,7 @@ func (context *Context) Process(pathList []string) {
 	}()
 	wg.Wait()
 
-	err = context.store.Finish()
-	if err != nil {
+	if err := context.store.Finish(); err != nil {
 		context.logErr("index", err)
 	}
 	context.LogQueue <- nil
