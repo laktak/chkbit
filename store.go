@@ -70,6 +70,15 @@ func (s *store) Open(readOnly bool, numWorkers int) error {
 		}
 
 		if !readOnly {
+
+			// test if the new db file is writeable before failing at the end
+			testWrite := getDbFile(s.dbPath, s.indexName, newDbSuffix)
+			if file, err := os.Create(testWrite); err != nil {
+				return err
+			} else {
+				defer file.Close()
+			}
+
 			if s.refreshDb {
 				// write to a new db
 				if s.cacheFileW, err = getTempDbFile(s.indexName); err != nil {
@@ -126,14 +135,15 @@ func (s *store) Finish() (updated bool, err error) {
 			cacheFile = s.cacheFileW
 		}
 
-		if err = s.exportCache(cacheFile, newDbSuffix); err != nil {
+		var newFile string
+		if newFile, err = s.exportCache(cacheFile, newDbSuffix); err != nil {
 			return
 		}
 
 		if err = os.Rename(s.dbFile, getDbFile(s.dbPath, s.indexName, bakDbSuffix)); err != nil {
 			return
 		}
-		if err = os.Rename(getDbFile(s.dbPath, s.indexName, newDbSuffix), s.dbFile); err != nil {
+		if err = os.Rename(newFile, s.dbFile); err != nil {
 			return
 		}
 
@@ -232,22 +242,23 @@ func (s *store) storeDbWorker() {
 	}
 }
 
-func (s *store) exportCache(dbFile, suffix string) error {
+func (s *store) exportCache(dbFile, suffix string) (exportFile string, err error) {
 	connR, err := bolt.Open(dbFile, 0600, getBoltOptions(true))
 	if err != nil {
-		return err
+		return
 	}
 	defer connR.Close()
 
-	file, err := os.Create(getDbFile(s.dbPath, s.indexName, suffix))
+	exportFile = getDbFile(s.dbPath, s.indexName, suffix)
+	file, err := os.Create(exportFile)
 	if err != nil {
-		return err
+		return
 	}
 	defer file.Close()
 
 	// export version 6 database
 	if _, err = file.WriteString(chkbitDbPrefix); err != nil {
-		return err
+		return
 	}
 
 	if err = connR.View(func(tx *bolt.Tx) error {
@@ -288,14 +299,14 @@ func (s *store) exportCache(dbFile, suffix string) error {
 		}
 		return ierr
 	}); err != nil {
-		return err
+		return
 	}
 
 	if _, err = file.WriteString(chkbitDbSuffix); err != nil {
-		return err
+		return
 	}
 
-	return err
+	return
 }
 
 func (s *store) importCache(dbFile string) error {
