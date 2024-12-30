@@ -185,14 +185,15 @@ func ExportIndexDb(path, indexName string) error {
 	if err != nil {
 		return err
 	}
+	defer connR.Close()
 
 	file, err := os.Create(getDbFile(path, indexName, ".json"))
 	if err != nil {
 		return err
 	}
-	defer file.Close() // Ensure the file is closed when the function exits
+	defer file.Close()
 
-	_, err = file.WriteString("{")
+	_, err = file.WriteString(`{"type":"chkbit","version":6,"data":{`)
 	if err != nil {
 		return err
 	}
@@ -231,7 +232,7 @@ func ExportIndexDb(path, indexName string) error {
 		return ierr
 	})
 
-	_, err = file.WriteString("}")
+	_, err = file.WriteString("}}")
 	if err != nil {
 		return err
 	}
