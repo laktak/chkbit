@@ -91,7 +91,6 @@ intact over time, especially during transfers and backups.
 
 Flags:
   -h, --help                    Show context-sensitive help.
-      --db                      use a index database instead of index files
   -m, --[no-]show-missing       show missing files/directories
   -d, --[no-]include-dot        include dot files
   -S, --[no-]skip-symlinks      do not follow symlinks
@@ -117,13 +116,10 @@ Commands:
     chkbit will verify files in readonly mode
 
   update <paths> ... [flags]
-    add and update indices
+    add and update indices (see flags with -h)
 
-  init-db <path> [flags]
-    initialize a new index database at the given path for use with --db
-
-  export-db <path> [flags]
-    export a database to a json for archiving
+  init <mode> <path> [flags]
+    initialize a new index at the given path
 
   show-ignored-only <paths> ... [flags]
     only show ignored files
@@ -152,15 +148,16 @@ $ chkbit tips
 - lines starting with '/' are only applied to the current directory
 
 Status codes:
+  PNC: exception/panic, unable to continue
   DMG: error, data damage detected
-  EIX: error, index damaged
+  ERX: error, index damaged
   old: warning, file replaced by an older version
-  new: new file
   upd: file updated
-  ok : check ok
-  del: file/directory removed
+  new: new file
+  ok : checked and ok (verbose)
+  del: file/directory removed (-m)
   ign: ignored (see .chkbitignore)
-  EXC: exception/panic
+  msg: message
 
 Configuration file (json):
 - location /home/spark/.config/chkbit/config.json

@@ -113,7 +113,7 @@ func (context *Context) endWork() {
 }
 
 func (context *Context) isChkbitFile(name string) bool {
-	// any file with the index prefix is ignored (to allow for .bak and db files)
+	// any file with the index prefix is ignored (to allow for .bak and -db files)
 	return strings.HasPrefix(name, context.IndexFilename) || name == context.IgnoreFilename
 }
 
@@ -152,7 +152,8 @@ func (context *Context) Process(pathList []string) {
 	if updated, err := context.store.Finish(); err != nil {
 		context.logErr("index", err)
 	} else if updated {
-		context.log(StatusInfo, "The index db was updated")
+		// todo
+		// context.log(StatusInfo, "The index store was updated")
 	}
 	context.LogQueue <- nil
 }
@@ -209,34 +210,27 @@ func (context *Context) scanDir(root string, parentIgnore *Ignore) {
 	}
 }
 
-func (context *Context) UseStoreDb(pathList []string) (root string, relativePathList []string, err error) {
+func (context *Context) UseAtomStore(root string, pathList []string) (relativePathList []string, err error) {
 
-	if len(pathList) == 0 {
-		return "", nil, errors.New("missing path(s)")
-	}
-	root, err = LocateIndexDb(pathList[0], context.IndexFilename)
-	if err == nil {
-
-		for _, path := range pathList {
-			path, err = filepath.Abs(path)
-			if err != nil {
-				return "", nil, err
-			}
-
-			// below root?
-			if !strings.HasPrefix(path, root) {
-				return "", nil, fmt.Errorf("path %s is not below the store-db in %s", path, root)
-			}
-
-			relativePath, err := filepath.Rel(root, path)
-			if err != nil {
-				return "", nil, err
-			}
-			relativePathList = append(relativePathList, relativePath)
+	for _, path := range pathList {
+		path, err = filepath.Abs(path)
+		if err != nil {
+			return nil, err
 		}
 
-		context.store.UseDb(root, context.IndexFilename, len(relativePathList) == 1 && relativePathList[0] == ".")
+		// below root?
+		if !strings.HasPrefix(path, root) {
+			return nil, fmt.Errorf("path %s is not below the atom store in %s", path, root)
+		}
+
+		relativePath, err := filepath.Rel(root, path)
+		if err != nil {
+			return nil, err
+		}
+		relativePathList = append(relativePathList, relativePath)
 	}
+
+	context.store.UseAtom(root, context.IndexFilename, len(relativePathList) == 1 && relativePathList[0] == ".")
 
 	return
 }

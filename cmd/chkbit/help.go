@@ -19,15 +19,16 @@ var helpTips = `
 - lines starting with '/' are only applied to the current directory
 
 Status codes:
+  PNC: exception/panic, unable to continue
   DMG: error, data damage detected
-  EIX: error, index damaged
+  ERX: error, index damaged
   old: warning, file replaced by an older version
-  new: new file
   upd: file updated
-  ok : check ok
-  del: file/directory removed
+  new: new file
+  ok : checked and ok (verbose)
+  del: file/directory removed (-m)
   ign: ignored (see .chkbitignore)
-  EXC: exception/panic
+  msg: message
 
 Configuration file (json):
 - location <config-file>

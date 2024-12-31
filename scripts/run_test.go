@@ -13,7 +13,7 @@ import (
 
 // perform integration test using the compiled binary
 
-var testDir = "/tmp/chkbit"
+const testDirBase = "/tmp/chkbit"
 
 func runCmd(args ...string) *exec.Cmd {
 	_, filename, _, _ := runtime.Caller(0)
@@ -35,113 +35,32 @@ func checkNotOut(t *testing.T, sout string, notExpected string) {
 	}
 }
 
-// misc files
-
-var (
-	startList = []string{"time", "year", "people", "way", "day", "thing"}
-	wordList  = []string{"life", "world", "school", "state", "family", "student", "group", "country", "problem", "hand", "part", "place", "case", "week", "company", "system", "program", "work", "government", "number", "night", "point", "home", "water", "room", "mother", "area", "money", "story", "fact", "month", "lot", "right", "study", "book", "eye", "job", "word", "business", "issue", "side", "kind", "head", "house", "service", "friend", "father", "power", "hour", "game", "line", "end", "member", "law", "car", "city", "community", "name", "president", "team", "minute", "idea", "kid", "body", "information", "back", "face", "others", "level", "office", "door", "health", "person", "art", "war", "history", "party", "result", "change", "morning", "reason", "research", "moment", "air", "teacher", "force", "education"}
-	extList   = []string{"txt", "md", "pdf", "jpg", "jpeg", "png", "mp4", "mp3", "csv"}
-	startDate = time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)
-	endDate   = time.Date(2024, 12, 1, 0, 0, 0, 0, time.UTC)
-	dateList  = []time.Time{}
-	wordIdx   = 0
-	extIdx    = 0
-	dateIdx   = 0
-)
-
-func nextWord() string {
-	word := wordList[wordIdx%len(wordList)]
-	wordIdx++
-	return word
-}
-
-func nextExt() string {
-	ext := extList[extIdx%len(extList)]
-	extIdx++
-	return ext
-}
-
-func setDate(filename string, r int) {
-	date := dateList[dateIdx%len(dateList)]
-	m := 17 * dateIdx / len(dateList)
-	date = date.Add(time.Duration(m) * time.Hour)
-	dateIdx++
-	os.Chtimes(filename, date, date)
-}
-
-func genFile(path string, size int) {
-	os.WriteFile(path, make([]byte, size), 0644)
-	setDate(path, size*size)
-}
-
-func genFiles(dir string, a int) {
-	os.MkdirAll(dir, 0755)
-	for i := 1; i <= 5; i++ {
-		size := a*i*wordIdx*100 + extIdx
-		file := nextWord() + "-" + nextWord()
-
-		if i%3 == 0 {
-			file += "-" + nextWord()
+func initStore(t *testing.T, storeType, root string) {
+	t.Run("init", func(t *testing.T) {
+		cmd := runCmd("init", storeType, root)
+		out, err := cmd.Output()
+		if err != nil {
+			t.Fatalf("failed with '%s'\n", err)
 		}
-
-		file += "." + nextExt()
-		genFile(filepath.Join(dir, file), size)
-	}
+		sout := string(out)
+		checkOut(t, sout, "chkbit init "+storeType)
+		checkNotOut(t, sout, "EXC")
+	})
 }
 
-func genDir(root string) {
-	for _, start := range startList {
+func testRoot(t *testing.T, storeType string) {
 
-		for i := 1; i <= 5; i++ {
-			dir := filepath.Join(root, start, nextWord())
-			genFiles(dir, 1)
-
-			if wordIdx%3 == 0 {
-				dir = filepath.Join(dir, nextWord())
-				genFiles(dir, 1)
-			}
-		}
-	}
-}
-
-func setupMiscFiles() {
-
-	var c int64 = 50
-	interval := (int64)(endDate.Sub(startDate).Seconds()) / c
-	for i := range make([]int64, c) {
-		dateList = append(dateList, startDate.Add(time.Duration(interval*(int64)(i))*time.Second))
-	}
-
+	testDir := filepath.Join(testDirBase, storeType)
 	root := filepath.Join(testDir, "root")
-	if err := os.RemoveAll(testDir); err != nil {
-		fmt.Println("Failed to clean", err)
-		panic(err)
+	g := genContext{}
+	g.makeTestSampleFiles(testDir)
+
+	checkPrefix := "/tmp/chkbit/split/root/"
+	if storeType == "atom" {
+		checkPrefix = ""
 	}
 
-	genDir(root)
-
-	os.MkdirAll(filepath.Join(root, "day/car/empty"), 0755)
-
-	rootPeople := filepath.Join(root, "people")
-	testPeople := filepath.Join(testDir, "people")
-
-	err := os.Rename(rootPeople, testPeople)
-	if err != nil {
-		fmt.Println("Rename failed", err)
-		panic(err)
-	}
-
-	err = os.Symlink(testPeople, rootPeople)
-	if err != nil {
-		fmt.Println("Symlink failed", err)
-		panic(err)
-	}
-}
-
-func TestRoot(t *testing.T) {
-	setupMiscFiles()
-
-	root := filepath.Join(testDir, "root")
+	initStore(t, storeType, root)
 
 	// update index, no recourse
 	t.Run("no-recourse", func(t *testing.T) {
@@ -184,7 +103,7 @@ func TestRoot(t *testing.T) {
 			t.Fatalf("failed with '%s'\n", err)
 		}
 		sout := string(out)
-		checkOut(t, sout, "del /tmp/chkbit/root/thing/change/")
+		checkOut(t, sout, "del "+checkPrefix+"thing/change/")
 		checkOut(t, sout, "2 files/directories would have been removed")
 	})
 
@@ -208,7 +127,7 @@ func TestRoot(t *testing.T) {
 			t.Fatalf("failed with '%s'\n", err)
 		}
 		sout := string(out)
-		checkOut(t, sout, "del /tmp/chkbit/root/thing/change/")
+		checkOut(t, sout, "del "+checkPrefix+"thing/change/")
 		checkOut(t, sout, "2 files/directories have been removed")
 	})
 
@@ -231,8 +150,8 @@ func TestRoot(t *testing.T) {
 	// add files only
 	t.Run("add-only", func(t *testing.T) {
 
-		genFiles(filepath.Join(root, "way/add"), 99)
-		genFile(filepath.Join(root, "time/add-file.txt"), 500)
+		g.genFiles(filepath.Join(root, "way/add"), 99)
+		g.genFile(filepath.Join(root, "time/add-file.txt"), 500)
 
 		cmd := runCmd("update", "-a", root)
 		out, err := cmd.Output()
@@ -250,7 +169,7 @@ func TestRoot(t *testing.T) {
 	t.Run("add-only-mod", func(t *testing.T) {
 
 		// modify existing
-		genFile(filepath.Join(root, "way/job/word-business.mp3"), 500)
+		g.genFile(filepath.Join(root, "way/job/word-business.mp3"), 500)
 
 		cmd := runCmd("update", "-a", root)
 		out, err := cmd.Output()
@@ -258,7 +177,7 @@ func TestRoot(t *testing.T) {
 			t.Fatalf("failed with '%s'\n", err)
 		}
 		sout := string(out)
-		checkOut(t, sout, "old /tmp/chkbit/root/way/job/word-business.mp3")
+		checkOut(t, sout, "old "+checkPrefix+"way/job/word-business.mp3")
 		checkOut(t, sout, "Processed 1 file")
 		checkOut(t, sout, "- 1 directory was updated")
 		checkOut(t, sout, "- 0 file hashes were added")
@@ -279,8 +198,8 @@ func TestRoot(t *testing.T) {
 	// ignore dot
 	t.Run("ignore-dot", func(t *testing.T) {
 
-		genFiles(filepath.Join(root, "way/.hidden"), 99)
-		genFile(filepath.Join(root, "time/.ignored"), 999)
+		g.genFiles(filepath.Join(root, "way/.hidden"), 99)
+		g.genFile(filepath.Join(root, "time/.ignored"), 999)
 
 		cmd := runCmd("update", root)
 		out, err := cmd.Output()
@@ -307,9 +226,9 @@ func TestRoot(t *testing.T) {
 	})
 }
 
-func TestDMG(t *testing.T) {
+func testDMG(t *testing.T, storeType string) {
 
-	testDmg := filepath.Join(testDir, "test_dmg")
+	testDmg := filepath.Join(testDirBase, "test_dmg", storeType)
 	if err := os.RemoveAll(testDmg); err != nil {
 		fmt.Println("Failed to clean", err)
 		panic(err)
@@ -323,6 +242,8 @@ func TestDMG(t *testing.T) {
 		fmt.Println("Failed to cd test directory", err)
 		panic(err)
 	}
+
+	initStore(t, storeType, ".")
 
 	testFile := filepath.Join(testDmg, "test.txt")
 	t1, _ := time.Parse(time.RFC3339, "2022-02-01T11:00:00Z")
@@ -383,4 +304,20 @@ func TestDMG(t *testing.T) {
 			t.Fatal("expected to fail!")
 		}
 	})
+}
+
+func TestRootAtom(t *testing.T) {
+	testRoot(t, "atom")
+}
+
+func TestRootSplit(t *testing.T) {
+	testRoot(t, "split")
+}
+
+func TestDmgAtom(t *testing.T) {
+	testDMG(t, "atom")
+}
+
+func TestDmgSplit(t *testing.T) {
+	testDMG(t, "split")
 }

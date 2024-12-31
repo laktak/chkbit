@@ -9,7 +9,7 @@ go test -v .
 echo "# test util"
 go test -v ./cmd/chkbit/util -count=1
 
-echo "# prep files"
+echo "# build"
 $script_dir/build
 
 echo "# test files"

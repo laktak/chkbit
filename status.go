@@ -3,15 +3,15 @@ package chkbit
 type Status string
 
 const (
-	StatusPanic         Status = "EXC"
-	StatusErrorIdx      Status = "ERX"
+	StatusPanic         Status = "PNC"
 	StatusErrorDamage   Status = "DMG"
+	StatusErrorIdx      Status = "ERX"
 	StatusUpdateWarnOld Status = "old"
 	StatusUpdate        Status = "upd"
 	StatusNew           Status = "new"
 	StatusOK            Status = "ok "
-	StatusIgnore        Status = "ign"
 	StatusMissing       Status = "del"
+	StatusIgnore        Status = "ign"
 	StatusInfo          Status = "msg"
 
 	// internal

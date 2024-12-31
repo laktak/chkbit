@@ -5,10 +5,19 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"slices"
 	"sync"
 	"time"
 
 	bolt "go.etcd.io/bbolt"
+)
+
+type StoreType int
+
+const (
+	StoreTypeAny StoreType = iota
+	StoreTypeSplit
+	StoreTypeAtom
 )
 
 type storeDbItem struct {
@@ -17,47 +26,48 @@ type storeDbItem struct {
 }
 
 type store struct {
+	indexName string
+	logQueue  chan *LogEvent
+
 	readOnly     bool
-	useDb        bool
-	refreshDb    bool
+	atom         bool
+	refresh      bool
 	dirty        bool
-	dbPath       string
-	indexName    string
-	dbFile       string
+	atomPath     string
 	cacheFileR   string
 	cacheFileW   string
 	connR        *bolt.DB
 	connW        *bolt.DB
 	storeDbQueue chan *storeDbItem
 	storeDbWg    sync.WaitGroup
-	logQueue     chan *LogEvent
 }
 
 const (
 	dbSuffix       = "-db"
-	bakDbSuffix    = ".bak"
-	newDbSuffix    = ".new"
+	bakSuffix      = ".bak"
+	newSuffix      = ".new"
 	dbTxTimeoutSec = 30
-	chkbitDbPrefix = `{"type":"chkbit","version":6,"data":{`
-	chkbitDbSuffix = `}}`
+	atomDataPrefix = `{"type":"chkbit","version":6,"data":{`
+	atomDataSuffix = `}}`
 )
 
-func (s *store) UseDb(path string, indexName string, refresh bool) {
-	s.dbPath = path
+var storeTypeList = []StoreType{StoreTypeAtom, StoreTypeSplit}
+
+func (s *store) UseAtom(path string, indexName string, refresh bool) {
+	s.atomPath = path
 	s.indexName = indexName
-	s.useDb = true
-	s.refreshDb = refresh
+	s.atom = true
+	s.refresh = refresh
 }
 
 func (s *store) logErr(message string) {
-	s.logQueue <- &LogEvent{StatusPanic, "index-db: " + message}
+	s.logQueue <- &LogEvent{StatusPanic, "store: " + message}
 }
 
 func (s *store) Open(readOnly bool, numWorkers int) error {
 	var err error
 	s.readOnly = readOnly
-	if s.useDb {
-		s.dbFile = getDbFile(s.dbPath, s.indexName, "")
+	if s.atom {
 
 		if s.cacheFileR, err = getTempDbFile(s.indexName); err != nil {
 			return err
@@ -71,15 +81,15 @@ func (s *store) Open(readOnly bool, numWorkers int) error {
 
 		if !readOnly {
 
-			// test if the new db file is writeable before failing at the end
-			testWrite := getDbFile(s.dbPath, s.indexName, newDbSuffix)
+			// test if the new store file is writeable before failing at the end
+			testWrite := getAtomFile(s.atomPath, s.indexName, newSuffix)
 			if file, err := os.Create(testWrite); err != nil {
 				return err
 			} else {
 				defer file.Close()
 			}
 
-			if s.refreshDb {
+			if s.refresh {
 				// write to a new db
 				if s.cacheFileW, err = getTempDbFile(s.indexName); err != nil {
 					return err
@@ -106,7 +116,7 @@ func (s *store) Open(readOnly bool, numWorkers int) error {
 
 func (s *store) Finish() (updated bool, err error) {
 
-	if !s.useDb {
+	if !s.atom {
 		return
 	}
 
@@ -119,7 +129,7 @@ func (s *store) Finish() (updated bool, err error) {
 		if err = s.connR.Close(); err != nil {
 			return
 		}
-		if !s.readOnly && s.refreshDb {
+		if !s.readOnly && s.refresh {
 			if err = s.connW.Close(); err != nil {
 				return
 			}
@@ -136,14 +146,15 @@ func (s *store) Finish() (updated bool, err error) {
 		}
 
 		var newFile string
-		if newFile, err = s.exportCache(cacheFile, newDbSuffix); err != nil {
+		if newFile, err = s.exportCache(cacheFile, newSuffix); err != nil {
 			return
 		}
 
-		if err = os.Rename(s.dbFile, getDbFile(s.dbPath, s.indexName, bakDbSuffix)); err != nil {
+		atomFile := getAtomFile(s.atomPath, s.indexName, "")
+		if err = os.Rename(atomFile, getAtomFile(s.atomPath, s.indexName, bakSuffix)); err != nil {
 			return
 		}
-		if err = os.Rename(newFile, s.dbFile); err != nil {
+		if err = os.Rename(newFile, atomFile); err != nil {
 			return
 		}
 
@@ -161,7 +172,7 @@ func (s *store) Finish() (updated bool, err error) {
 func (s *store) Load(indexPath string) ([]byte, error) {
 	var err error
 	var value []byte
-	if s.useDb {
+	if s.atom {
 		if s.connR == nil {
 			return nil, errors.New("db not loaded")
 		}
@@ -185,7 +196,7 @@ func (s *store) Load(indexPath string) ([]byte, error) {
 func (s *store) Save(indexPath string, value []byte) error {
 	var err error
 	s.dirty = true
-	if s.useDb {
+	if s.atom {
 		s.storeDbQueue <- &storeDbItem{[]byte(indexPath), value}
 	} else {
 		// try to preserve the directory mod time but ignore if unsupported
@@ -249,15 +260,15 @@ func (s *store) exportCache(dbFile, suffix string) (exportFile string, err error
 	}
 	defer connR.Close()
 
-	exportFile = getDbFile(s.dbPath, s.indexName, suffix)
+	exportFile = getAtomFile(s.atomPath, s.indexName, suffix)
 	file, err := os.Create(exportFile)
 	if err != nil {
 		return
 	}
 	defer file.Close()
 
-	// export version 6 database
-	if _, err = file.WriteString(chkbitDbPrefix); err != nil {
+	// export version 6 store
+	if _, err = file.WriteString(atomDataPrefix); err != nil {
 		return
 	}
 
@@ -302,7 +313,7 @@ func (s *store) exportCache(dbFile, suffix string) (exportFile string, err error
 		return
 	}
 
-	if _, err = file.WriteString(chkbitDbSuffix); err != nil {
+	if _, err = file.WriteString(atomDataSuffix); err != nil {
 		return
 	}
 
@@ -323,7 +334,7 @@ func (s *store) importCache(dbFile string) error {
 		return err
 	}
 
-	file, err := os.Open(getDbFile(s.dbPath, s.indexName, ""))
+	file, err := os.Open(getAtomFile(s.atomPath, s.indexName, ""))
 	if err != nil {
 		return err
 	}
@@ -405,12 +416,31 @@ func (s *store) importCache(dbFile string) error {
 	return err
 }
 
-func getDbFile(path, indexFilename, suffix string) string {
-	return filepath.Join(path, indexFilename+dbSuffix+suffix)
+func getAtomFile(path, indexName, suffix string) string {
+	return filepath.Join(path, indexName+dbSuffix+suffix)
 }
 
-func getTempDbFile(indexFilename string) (string, error) {
-	tempFile, err := os.CreateTemp("", "*"+indexFilename)
+func getMarkerFile(st StoreType, path, indexName string) string {
+	if st == StoreTypeSplit {
+		return filepath.Join(path, indexName)
+	} else {
+		return getAtomFile(path, indexName, "")
+	}
+}
+
+func existsMarkerFile(st StoreType, path, indexName string) (ok bool, err error) {
+	fileName := getMarkerFile(st, path, indexName)
+	_, err = os.Stat(fileName)
+	if err == nil {
+		ok = true
+	} else if os.IsNotExist(err) {
+		err = nil
+	}
+	return
+}
+
+func getTempDbFile(indexName string) (string, error) {
+	tempFile, err := os.CreateTemp("", "*"+indexName)
 	if err == nil {
 		tempFile.Close()
 	}
@@ -426,8 +456,11 @@ func getBoltOptions(readOnly bool) *bolt.Options {
 	}
 }
 
-func InitializeIndexDb(path, indexName string, force bool) error {
-	fileName := getDbFile(path, indexName, "")
+func InitializeStore(st StoreType, path, indexName string, force bool) error {
+	if !slices.Contains(storeTypeList, st) {
+		return errors.New("invalid type")
+	}
+	fileName := getMarkerFile(st, path, indexName)
 	_, err := os.Stat(fileName)
 	if !os.IsNotExist(err) {
 		if force {
@@ -443,25 +476,33 @@ func InitializeIndexDb(path, indexName string, force bool) error {
 		return err
 	}
 	defer file.Close()
-	_, err = file.WriteString(chkbitDbPrefix + chkbitDbSuffix)
+	init := atomDataPrefix + atomDataSuffix
+	if st == StoreTypeSplit {
+		init = "{}"
+	}
+	_, err = file.WriteString(init)
 	return err
 }
 
-func LocateIndexDb(path, indexName string) (string, error) {
-	var err error
-	if path, err = filepath.Abs(path); err != nil {
-		return "", err
+func LocateStore(startPath string, filter StoreType, indexName string) (st StoreType, path string, err error) {
+	if path, err = filepath.Abs(startPath); err != nil {
+		return
 	}
 	for {
-		file := getDbFile(path, indexName, "")
-		_, err = os.Stat(file)
-		if !os.IsNotExist(err) {
-			return path, nil
+		var ok bool
+		for _, st = range storeTypeList {
+			if filter == StoreTypeAny || filter == st {
+				if ok, err = existsMarkerFile(st, path, indexName); ok || err != nil {
+					return
+				}
+			}
 		}
+
 		path = filepath.Dir(path)
 		if len(path) < 1 || path[len(path)-1] == filepath.Separator {
 			// reached root
-			return "", errors.New("index db could not be located (forgot to initialize?)")
+			err = errors.New("index could not be located (see chkbit init)")
+			return
 		}
 	}
 }

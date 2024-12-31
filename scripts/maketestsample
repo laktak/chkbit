@@ -1,0 +1,10 @@
+#!/bin/bash
+set -e
+
+script_dir=$(dirname "$(realpath "$0")")
+
+go run $script_dir/maketestsample.go -root /tmp/sample
+
+echo
+echo '$ ls -l /tmp/sample/root'
+ls -l /tmp/sample/root

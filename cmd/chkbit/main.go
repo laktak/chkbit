@@ -60,12 +60,13 @@ type CLI struct {
 		Paths   []string `arg:""  name:"paths" help:"directories to update"`
 		AddOnly bool     `short:"a" help:"only add new and modified files, do not check existing (quicker)"`
 		Force   bool     `help:"force update of damaged items (advanced usage only)"`
-	} `cmd:"" help:"add and update indices"`
+	} `cmd:"" help:"add and update indices (see flags with -h)"`
 
-	InitDb struct {
-		Path  string `arg:"" help:"directory for the database"`
-		Force bool   `help:"force init if a database already exists"`
-	} `cmd:"" help:"initialize a new index database at the given path for use with --db"`
+	Init struct {
+		Mode  string `arg:"" enum:"split,atom" help:"the mode defines if you wish to store on index per directory (split) or one index in the given path (atom)"`
+		Path  string `arg:"" help:"directory for the store root"`
+		Force bool   `help:"force init if a store already exists"`
+	} `cmd:"" help:"initialize a new index at the given path"`
 
 	ShowIgnoredOnly struct {
 		Paths []string `arg:""  name:"paths" help:"directories to list"`
@@ -77,7 +78,6 @@ type CLI struct {
 	Version struct {
 	} `cmd:"" help:"show version information"`
 
-	Db           bool   `help:"use a index database instead of index files"`
 	ShowMissing  bool   `short:"m" help:"show missing files/directories" negatable:""`
 	IncludeDot   bool   `short:"d" help:"include dot files" negatable:""`
 	SkipSymlinks bool   `short:"S" help:"do not follow symlinks" negatable:""`
@@ -257,15 +257,20 @@ func (m *Main) process(cmd Command, cli CLI) (bool, error) {
 	m.context.SkipSubdirectories = cli.NoRecurse
 	m.context.TrackDirectories = !cli.NoDirInIndex
 
-	if cli.Db {
-		var root string
-		root, pathList, err = m.context.UseStoreDb(pathList)
+	st, root, err := chkbit.LocateStore(pathList[0], chkbit.StoreTypeAny, m.context.IndexFilename)
+	if err != nil {
+		return false, err
+	}
+
+	if st == chkbit.StoreTypeAtom {
+		pathList, err = m.context.UseAtomStore(root, pathList)
 		if err == nil {
 			// pathList is relative to root
-			err = os.Chdir(root)
-			m.logInfo("", "Using store-db in "+root)
-		}
-		if err != nil {
+			if err = os.Chdir(root); err != nil {
+				return false, err
+			}
+			m.logInfo("", "Using atom-store in "+root)
+		} else {
 			return false, err
 		}
 	}
@@ -394,9 +399,13 @@ func (m *Main) run() int {
 		cmd = Update
 	case "show-ignored-only <paths>":
 		cmd = Show
-	case "init-db <path>":
-		m.logInfo("", "chkbit init-db "+cli.InitDb.Path)
-		if err := chkbit.InitializeIndexDb(cli.InitDb.Path, cli.IndexName, cli.InitDb.Force); err != nil {
+	case "init <mode> <path>":
+		m.logInfo("", fmt.Sprintf("chkbit init %s %s", cli.Init.Mode, cli.Init.Path))
+		st := chkbit.StoreTypeSplit
+		if cli.Init.Mode == "atom" {
+			st = chkbit.StoreTypeAtom
+		}
+		if err := chkbit.InitializeStore(st, cli.Init.Path, cli.IndexName, cli.Init.Force); err != nil {
 			m.logError(err.Error())
 			return 1
 		}
