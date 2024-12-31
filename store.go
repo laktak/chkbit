@@ -213,7 +213,12 @@ func ExportIndexDb(path, indexName string) error {
 				}
 			}
 
-			if idxPath, ierr := json.Marshal(string(k)); ierr == nil {
+			// remove index filename
+			key := filepath.Dir(string(k))
+			if key == "." {
+				key = ""
+			}
+			if idxPath, ierr := json.Marshal(key); ierr == nil {
 				if _, ierr = file.Write(idxPath); ierr != nil {
 					break
 				}
