@@ -1,9 +1,10 @@
 package main
 
-var headerHelp = `Ensures the safety of your files by verifying that their data integrity remains intact over time, especially during transfers and backups.
+var headerHelp = `Alerts you of data corruption of your files, especially during transfers, backups and after recovery.
 
  For help tips run "chkbit -H" or go to
  https://github.com/laktak/chkbit
+ Author: Christian Zangl <laktak@cdak.net>
 `
 
 var helpTips = `

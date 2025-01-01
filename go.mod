@@ -3,7 +3,7 @@ module github.com/laktak/chkbit/v5
 go 1.22.3
 
 require (
-	github.com/alecthomas/kong v1.4.0
+	github.com/alecthomas/kong v1.6.0
 	github.com/laktak/lterm v1.0.0
 	go.etcd.io/bbolt v1.3.11
 	lukechampine.com/blake3 v1.3.0

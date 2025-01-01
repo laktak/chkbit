@@ -1,7 +1,7 @@
 
 # chkbit
 
-chkbit is a tool that ensures the safety of your files by checking if their *data integrity remains intact over time*, especially during transfers and backups. It helps detect issues like disk damage, filesystem errors, and malware interference.
+chkbit alerts you of data corruption of your files, especially during transfers, backups and after recovery. It helps detect issues like disk damage, filesystem errors, and malware interference.
 
 Some filesystems (like Btrfs and ZFS, but not APFS or NTFS) already protect your files with checksums. However when you move files between locations, separate checks have the advantage of confirming that the data was not modified during transit. So you know the photo on your disk is the same as the copy in your cloud backup. This also protects you from overwriting good data with bad copies.
 

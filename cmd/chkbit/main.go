@@ -89,7 +89,7 @@ type CLI struct {
 	Algo         string `default:"blake3" help:"hash algorithm: md5, sha512, blake3"`
 	IndexName    string `default:".chkbit" help:"filename where chkbit stores its hashes, needs to start with '.'"`
 	IgnoreName   string `default:".chkbitignore" help:"filename that chkbit reads its ignore list from, needs to start with '.'"`
-	Workers      int    `short:"w" default:"5" help:"number of workers to use. For slow IO (like on a spinning disk) --workers=1 will be faster."`
+	Workers      int    `short:"w" default:"5" help:"number of workers to use. For slow IO (like on a spinning disk) --workers=1 will be faster"`
 	Plain        bool   `help:"show plain status instead of being fancy" negatable:""`
 	Quiet        bool   `short:"q" help:"quiet, don't show progress/information" negatable:""`
 	Verbose      bool   `short:"v" help:"verbose output" negatable:""`
