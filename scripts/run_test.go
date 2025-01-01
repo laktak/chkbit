@@ -35,36 +35,36 @@ func checkNotOut(t *testing.T, sout string, notExpected string) {
 	}
 }
 
-func initStore(t *testing.T, storeType, root string) {
+func initIndexStore(t *testing.T, indexType, root string) {
 	t.Run("init", func(t *testing.T) {
-		cmd := runCmd("init", storeType, root)
+		cmd := runCmd("init", indexType, root)
 		out, err := cmd.Output()
 		if err != nil {
 			t.Fatalf("failed with '%s'\n", err)
 		}
 		sout := string(out)
-		checkOut(t, sout, "chkbit init "+storeType)
+		checkOut(t, sout, "chkbit init "+indexType)
 		checkNotOut(t, sout, "EXC")
 	})
 }
 
-func testRoot(t *testing.T, storeType string) {
+func testRoot(t *testing.T, indexType string) {
 
-	testDir := filepath.Join(testDirBase, storeType)
+	testDir := filepath.Join(testDirBase, indexType)
 	root := filepath.Join(testDir, "root")
 	g := genContext{}
 	g.makeTestSampleFiles(testDir)
 
 	checkPrefix := "/tmp/chkbit/split/root/"
-	if storeType == "atom" {
+	if indexType == "atom" {
 		checkPrefix = ""
 	}
 
-	initStore(t, storeType, root)
+	initIndexStore(t, indexType, root)
 
 	// update index, no recourse
 	t.Run("no-recourse", func(t *testing.T) {
-		cmd := runCmd("update", "-mR", filepath.Join(root, "day/office"))
+		cmd := runCmd("update", "--log-deleted", "--no-recurse", filepath.Join(root, "day/office"))
 		out, err := cmd.Output()
 		if err != nil {
 			t.Fatalf("failed with '%s'\n", err)
@@ -79,7 +79,7 @@ func testRoot(t *testing.T, storeType string) {
 
 	// update remaining index from root
 	t.Run("update-remaining", func(t *testing.T) {
-		cmd := runCmd("update", "-m", root)
+		cmd := runCmd("update", "--log-deleted", root)
 		out, err := cmd.Output()
 		if err != nil {
 			t.Fatalf("failed with '%s'\n", err)
@@ -97,7 +97,7 @@ func testRoot(t *testing.T, storeType string) {
 		os.RemoveAll(filepath.Join(root, "thing/change"))
 		os.Remove(filepath.Join(root, "time/hour/minute/body-information.csv"))
 
-		cmd := runCmd("check", "-m", root)
+		cmd := runCmd("check", "--log-deleted", root)
 		out, err := cmd.Output()
 		if err != nil {
 			t.Fatalf("failed with '%s'\n", err)
@@ -107,7 +107,7 @@ func testRoot(t *testing.T, storeType string) {
 		checkOut(t, sout, "2 files/directories would have been removed")
 	})
 
-	// do not report missing without -m
+	// do not report missing without --log-deleted
 	t.Run("no-missing", func(t *testing.T) {
 		cmd := runCmd("check", root)
 		out, err := cmd.Output()
@@ -121,7 +121,7 @@ func testRoot(t *testing.T, storeType string) {
 
 	// check for missing and update
 	t.Run("missing", func(t *testing.T) {
-		cmd := runCmd("update", "-m", root)
+		cmd := runCmd("update", "--log-deleted", root)
 		out, err := cmd.Output()
 		if err != nil {
 			t.Fatalf("failed with '%s'\n", err)
@@ -153,7 +153,7 @@ func testRoot(t *testing.T, storeType string) {
 		g.genFiles(filepath.Join(root, "way/add"), 99)
 		g.genFile(filepath.Join(root, "time/add-file.txt"), 500)
 
-		cmd := runCmd("update", "-a", root)
+		cmd := runCmd("update", "--skip-existing", root)
 		out, err := cmd.Output()
 		if err != nil {
 			t.Fatalf("failed with '%s'\n", err)
@@ -171,7 +171,7 @@ func testRoot(t *testing.T, storeType string) {
 		// modify existing
 		g.genFile(filepath.Join(root, "way/job/word-business.mp3"), 500)
 
-		cmd := runCmd("update", "-a", root)
+		cmd := runCmd("update", "--skip-existing", root)
 		out, err := cmd.Output()
 		if err != nil {
 			t.Fatalf("failed with '%s'\n", err)
@@ -213,7 +213,7 @@ func testRoot(t *testing.T, storeType string) {
 	// include dot
 	t.Run("include-dot", func(t *testing.T) {
 
-		cmd := runCmd("update", "-d", root)
+		cmd := runCmd("update", "--include-dot", root)
 		out, err := cmd.Output()
 		if err != nil {
 			t.Fatalf("failed with '%s'\n", err)
@@ -226,9 +226,9 @@ func testRoot(t *testing.T, storeType string) {
 	})
 }
 
-func testDMG(t *testing.T, storeType string) {
+func testDMG(t *testing.T, indexType string) {
 
-	testDmg := filepath.Join(testDirBase, "test_dmg", storeType)
+	testDmg := filepath.Join(testDirBase, "test_dmg", indexType)
 	if err := os.RemoveAll(testDmg); err != nil {
 		fmt.Println("Failed to clean", err)
 		panic(err)
@@ -243,7 +243,7 @@ func testDMG(t *testing.T, storeType string) {
 		panic(err)
 	}
 
-	initStore(t, storeType, ".")
+	initIndexStore(t, indexType, ".")
 
 	testFile := filepath.Join(testDmg, "test.txt")
 	t1, _ := time.Parse(time.RFC3339, "2022-02-01T11:00:00Z")

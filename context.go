@@ -11,14 +11,14 @@ import (
 
 type Context struct {
 	NumWorkers         int
-	UpdateIndex        bool
-	AddOnly            bool
-	ShowIgnoredOnly    bool
-	ShowMissing        bool
-	IncludeDot         bool
+	UpdateIndex        bool // add and update hashes
+	UpdateSkipCheck    bool // do not check existing hashes when updating
+	ShowIgnoredOnly    bool // print ignored files
+	LogDeleted         bool // output deleted files and directories
+	IncludeDot         bool // include dot files
 	ForceUpdateDmg     bool
 	HashAlgo           string
-	TrackDirectories   bool
+	TrackDirectories   bool // keep track of directories
 	SkipSymlinks       bool
 	SkipSubdirectories bool
 	IndexFilename      string
@@ -28,7 +28,7 @@ type Context struct {
 	LogQueue  chan *LogEvent
 	PerfQueue chan *PerfEvent
 
-	store *store
+	store *indexStore
 
 	mutex     sync.Mutex
 	NumTotal  int
@@ -60,7 +60,7 @@ func NewContext(numWorkers int, hashAlgo string, indexFilename string, ignoreFil
 		WorkQueue:      make(chan *WorkItem, numWorkers*10),
 		LogQueue:       logQueue,
 		PerfQueue:      make(chan *PerfEvent, numWorkers*10),
-		store:          &store{logQueue: logQueue},
+		store:          &indexStore{logQueue: logQueue},
 	}, nil
 }
 
@@ -82,10 +82,10 @@ func (context *Context) log(stat Status, message string) {
 		context.NumTotal++
 		context.NumNew++
 	case StatusOK:
-		if !context.AddOnly {
+		if !context.UpdateSkipCheck {
 			context.NumTotal++
 		}
-	case StatusMissing:
+	case StatusDeleted:
 		context.NumDel++
 	}
 
@@ -149,11 +149,8 @@ func (context *Context) Process(pathList []string) {
 	}()
 	wg.Wait()
 
-	if updated, err := context.store.Finish(); err != nil {
-		context.logErr("index", err)
-	} else if updated {
-		// todo
-		// context.log(StatusInfo, "The index store was updated")
+	if _, err := context.store.Finish(); err != nil {
+		context.logErr("indexstore", err)
 	}
 	context.LogQueue <- nil
 }
@@ -210,7 +207,7 @@ func (context *Context) scanDir(root string, parentIgnore *Ignore) {
 	}
 }
 
-func (context *Context) UseAtomStore(root string, pathList []string) (relativePathList []string, err error) {
+func (context *Context) UseAtomIndexStore(root string, pathList []string) (relativePathList []string, err error) {
 
 	for _, path := range pathList {
 		path, err = filepath.Abs(path)
@@ -220,7 +217,7 @@ func (context *Context) UseAtomStore(root string, pathList []string) (relativePa
 
 		// below root?
 		if !strings.HasPrefix(path, root) {
-			return nil, fmt.Errorf("path %s is not below the atom store in %s", path, root)
+			return nil, fmt.Errorf("path %s is not below the atom index in %s", path, root)
 		}
 
 		relativePath, err := filepath.Rel(root, path)

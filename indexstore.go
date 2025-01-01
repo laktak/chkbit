@@ -12,20 +12,24 @@ import (
 	bolt "go.etcd.io/bbolt"
 )
 
-type StoreType int
+type IndexType int
 
 const (
-	StoreTypeAny StoreType = iota
-	StoreTypeSplit
-	StoreTypeAtom
+	IndexTypeAny IndexType = iota
+	IndexTypeSplit
+	IndexTypeAtom
 )
 
-type storeDbItem struct {
-	key   []byte
-	value []byte
-}
+const (
+	atomSuffix     = "-db"
+	bakSuffix      = ".bak"
+	newSuffix      = ".new"
+	dbTxTimeoutSec = 30
+	atomDataPrefix = `{"type":"chkbit","version":6,"data":{`
+	atomDataSuffix = `}}`
+)
 
-type store struct {
+type indexStore struct {
 	indexName string
 	logQueue  chan *LogEvent
 
@@ -42,29 +46,25 @@ type store struct {
 	storeDbWg    sync.WaitGroup
 }
 
-const (
-	dbSuffix       = "-db"
-	bakSuffix      = ".bak"
-	newSuffix      = ".new"
-	dbTxTimeoutSec = 30
-	atomDataPrefix = `{"type":"chkbit","version":6,"data":{`
-	atomDataSuffix = `}}`
-)
+type storeDbItem struct {
+	key   []byte
+	value []byte
+}
 
-var storeTypeList = []StoreType{StoreTypeAtom, StoreTypeSplit}
+var IndexTypeList = []IndexType{IndexTypeAtom, IndexTypeSplit}
 
-func (s *store) UseAtom(path string, indexName string, refresh bool) {
+func (s *indexStore) UseAtom(path string, indexName string, refresh bool) {
 	s.atomPath = path
 	s.indexName = indexName
 	s.atom = true
 	s.refresh = refresh
 }
 
-func (s *store) logErr(message string) {
-	s.logQueue <- &LogEvent{StatusPanic, "store: " + message}
+func (s *indexStore) logErr(message string) {
+	s.logQueue <- &LogEvent{StatusPanic, "indexstore: " + message}
 }
 
-func (s *store) Open(readOnly bool, numWorkers int) error {
+func (s *indexStore) Open(readOnly bool, numWorkers int) error {
 	var err error
 	s.readOnly = readOnly
 	if s.atom {
@@ -81,7 +81,7 @@ func (s *store) Open(readOnly bool, numWorkers int) error {
 
 		if !readOnly {
 
-			// test if the new store file is writeable before failing at the end
+			// test if the new atom file is writeable before failing at the end
 			testWrite := getAtomFile(s.atomPath, s.indexName, newSuffix)
 			if file, err := os.Create(testWrite); err != nil {
 				return err
@@ -114,7 +114,7 @@ func (s *store) Open(readOnly bool, numWorkers int) error {
 	return err
 }
 
-func (s *store) Finish() (updated bool, err error) {
+func (s *indexStore) Finish() (updated bool, err error) {
 
 	if !s.atom {
 		return
@@ -169,7 +169,7 @@ func (s *store) Finish() (updated bool, err error) {
 	return
 }
 
-func (s *store) Load(indexPath string) ([]byte, error) {
+func (s *indexStore) Load(indexPath string) ([]byte, error) {
 	var err error
 	var value []byte
 	if s.atom {
@@ -193,7 +193,7 @@ func (s *store) Load(indexPath string) ([]byte, error) {
 	return value, err
 }
 
-func (s *store) Save(indexPath string, value []byte) error {
+func (s *indexStore) Save(indexPath string, value []byte) error {
 	var err error
 	s.dirty = true
 	if s.atom {
@@ -210,7 +210,7 @@ func (s *store) Save(indexPath string, value []byte) error {
 	return err
 }
 
-func (s *store) storeDbWorker() {
+func (s *indexStore) storeDbWorker() {
 
 	var tx *bolt.Tx
 	var b *bolt.Bucket
@@ -253,7 +253,7 @@ func (s *store) storeDbWorker() {
 	}
 }
 
-func (s *store) exportCache(dbFile, suffix string) (exportFile string, err error) {
+func (s *indexStore) exportCache(dbFile, suffix string) (exportFile string, err error) {
 	connR, err := bolt.Open(dbFile, 0600, getBoltOptions(true))
 	if err != nil {
 		return
@@ -267,7 +267,7 @@ func (s *store) exportCache(dbFile, suffix string) (exportFile string, err error
 	}
 	defer file.Close()
 
-	// export version 6 store
+	// export version 6 atom
 	if _, err = file.WriteString(atomDataPrefix); err != nil {
 		return
 	}
@@ -320,7 +320,7 @@ func (s *store) exportCache(dbFile, suffix string) (exportFile string, err error
 	return
 }
 
-func (s *store) importCache(dbFile string) error {
+func (s *indexStore) importCache(dbFile string) error {
 
 	connW, err := bolt.Open(dbFile, 0600, getBoltOptions(false))
 	if err != nil {
@@ -417,18 +417,18 @@ func (s *store) importCache(dbFile string) error {
 }
 
 func getAtomFile(path, indexName, suffix string) string {
-	return filepath.Join(path, indexName+dbSuffix+suffix)
+	return filepath.Join(path, indexName+atomSuffix+suffix)
 }
 
-func getMarkerFile(st StoreType, path, indexName string) string {
-	if st == StoreTypeSplit {
+func getMarkerFile(st IndexType, path, indexName string) string {
+	if st == IndexTypeSplit {
 		return filepath.Join(path, indexName)
 	} else {
 		return getAtomFile(path, indexName, "")
 	}
 }
 
-func existsMarkerFile(st StoreType, path, indexName string) (ok bool, err error) {
+func existsMarkerFile(st IndexType, path, indexName string) (ok bool, err error) {
 	fileName := getMarkerFile(st, path, indexName)
 	_, err = os.Stat(fileName)
 	if err == nil {
@@ -456,8 +456,8 @@ func getBoltOptions(readOnly bool) *bolt.Options {
 	}
 }
 
-func InitializeStore(st StoreType, path, indexName string, force bool) error {
-	if !slices.Contains(storeTypeList, st) {
+func InitializeIndexStore(st IndexType, path, indexName string, force bool) error {
+	if !slices.Contains(IndexTypeList, st) {
 		return errors.New("invalid type")
 	}
 	fileName := getMarkerFile(st, path, indexName)
@@ -477,21 +477,21 @@ func InitializeStore(st StoreType, path, indexName string, force bool) error {
 	}
 	defer file.Close()
 	init := atomDataPrefix + atomDataSuffix
-	if st == StoreTypeSplit {
+	if st == IndexTypeSplit {
 		init = "{}"
 	}
 	_, err = file.WriteString(init)
 	return err
 }
 
-func LocateStore(startPath string, filter StoreType, indexName string) (st StoreType, path string, err error) {
+func LocateIndex(startPath string, filter IndexType, indexName string) (st IndexType, path string, err error) {
 	if path, err = filepath.Abs(startPath); err != nil {
 		return
 	}
 	for {
 		var ok bool
-		for _, st = range storeTypeList {
-			if filter == StoreTypeAny || filter == st {
+		for _, st = range IndexTypeList {
+			if filter == IndexTypeAny || filter == st {
 				if ok, err = existsMarkerFile(st, path, indexName); ok || err != nil {
 					return
 				}

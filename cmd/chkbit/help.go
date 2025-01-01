@@ -35,4 +35,8 @@ Configuration file (json):
 - key names are the option names with '-' replaced by '_'
 - for example --include-dot is written as:
   { "include_dot": true }
+
+Performance:
+- chkbit uses 5 workers by default. To speed it up tune it with the --workers flag.
+- Note: slow/spinning disks work best with just 1 worker!
 `

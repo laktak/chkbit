@@ -31,7 +31,7 @@ type Command int
 const (
 	Check Command = iota
 	Update
-	Show
+	ShowIgnored
 )
 
 const (
@@ -57,20 +57,20 @@ type CLI struct {
 	} `cmd:"" help:"chkbit will verify files in readonly mode"`
 
 	Update struct {
-		Paths   []string `arg:""  name:"paths" help:"directories to update"`
-		AddOnly bool     `short:"a" help:"only add new and modified files, do not check existing (quicker)"`
-		Force   bool     `help:"force update of damaged items (advanced usage only)"`
-	} `cmd:"" help:"add and update indices (see flags with -h)"`
+		Paths        []string `arg:""  name:"paths" help:"directories to update"`
+		SkipExisting bool     `short:"s" help:"only add new and modified files, do not check existing (quicker)"`
+		Force        bool     `help:"force update of damaged items (advanced usage only)"`
+	} `cmd:"" help:"add and update modified files, also checking existing ones (see flags with -h)"`
 
 	Init struct {
-		Mode  string `arg:"" enum:"split,atom" help:"the mode defines if you wish to store on index per directory (split) or one index in the given path (atom)"`
-		Path  string `arg:"" help:"directory for the store root"`
-		Force bool   `help:"force init if a store already exists"`
-	} `cmd:"" help:"initialize a new index at the given path"`
+		Mode  string `arg:"" enum:"split,atom" help:"split|atom: split mode creates one index per directory while in atom mode a single index is created at the given path"`
+		Path  string `arg:"" help:"directory for the index"`
+		Force bool   `help:"force init if a index already exists"`
+	} `cmd:"" help:"initialize a new index at the given path that manages the path and all its subfolders (see -h)"`
 
-	ShowIgnoredOnly struct {
+	ShowIgnored struct {
 		Paths []string `arg:""  name:"paths" help:"directories to list"`
-	} `cmd:"" help:"only show ignored files"`
+	} `cmd:"" help:"show ignored files (see tips)"`
 
 	Tips struct {
 	} `cmd:"" help:"show tips"`
@@ -78,7 +78,7 @@ type CLI struct {
 	Version struct {
 	} `cmd:"" help:"show version information"`
 
-	ShowMissing  bool   `short:"m" help:"show missing files/directories" negatable:""`
+	LogDeleted   bool   `short:"x" help:"log deleted/missing files/directories since the last run" negatable:""`
 	IncludeDot   bool   `short:"d" help:"include dot files" negatable:""`
 	SkipSymlinks bool   `short:"S" help:"do not follow symlinks" negatable:""`
 	NoRecurse    bool   `short:"R" help:"do not recurse into subdirectories" negatable:""`
@@ -242,34 +242,34 @@ func (m *Main) process(cmd Command, cli CLI) (bool, error) {
 	case Update:
 		pathList = cli.Update.Paths
 		m.context.UpdateIndex = true
-		m.context.AddOnly = cli.Update.AddOnly
+		m.context.UpdateSkipCheck = cli.Update.SkipExisting
 		m.context.ForceUpdateDmg = cli.Update.Force
 		m.logFile("chkbit update " + strings.Join(pathList, ", "))
-	case Show:
-		pathList = cli.ShowIgnoredOnly.Paths
+	case ShowIgnored:
+		pathList = cli.ShowIgnored.Paths
 		m.context.ShowIgnoredOnly = true
-		m.logFile("chkbit show-ignored-only " + strings.Join(pathList, ", "))
+		m.logFile("chkbit show-ignored " + strings.Join(pathList, ", "))
 	}
 
-	m.context.ShowMissing = cli.ShowMissing
+	m.context.LogDeleted = cli.LogDeleted
 	m.context.IncludeDot = cli.IncludeDot
 	m.context.SkipSymlinks = cli.SkipSymlinks
 	m.context.SkipSubdirectories = cli.NoRecurse
 	m.context.TrackDirectories = !cli.NoDirInIndex
 
-	st, root, err := chkbit.LocateStore(pathList[0], chkbit.StoreTypeAny, m.context.IndexFilename)
+	st, root, err := chkbit.LocateIndex(pathList[0], chkbit.IndexTypeAny, m.context.IndexFilename)
 	if err != nil {
 		return false, err
 	}
 
-	if st == chkbit.StoreTypeAtom {
-		pathList, err = m.context.UseAtomStore(root, pathList)
+	if st == chkbit.IndexTypeAtom {
+		pathList, err = m.context.UseAtomIndexStore(root, pathList)
 		if err == nil {
 			// pathList is relative to root
 			if err = os.Chdir(root); err != nil {
 				return false, err
 			}
-			m.logInfo("", "Using atom-store in "+root)
+			m.logInfo("", "Using atom-index in "+root)
 		} else {
 			return false, err
 		}
@@ -397,15 +397,15 @@ func (m *Main) run() int {
 		cmd = Check
 	case "update <paths>":
 		cmd = Update
-	case "show-ignored-only <paths>":
-		cmd = Show
+	case "show-ignored <paths>":
+		cmd = ShowIgnored
 	case "init <mode> <path>":
 		m.logInfo("", fmt.Sprintf("chkbit init %s %s", cli.Init.Mode, cli.Init.Path))
-		st := chkbit.StoreTypeSplit
+		st := chkbit.IndexTypeSplit
 		if cli.Init.Mode == "atom" {
-			st = chkbit.StoreTypeAtom
+			st = chkbit.IndexTypeAtom
 		}
-		if err := chkbit.InitializeStore(st, cli.Init.Path, cli.IndexName, cli.Init.Force); err != nil {
+		if err := chkbit.InitializeIndexStore(st, cli.Init.Path, cli.IndexName, cli.Init.Force); err != nil {
 			m.logError(err.Error())
 			return 1
 		}
@@ -422,7 +422,7 @@ func (m *Main) run() int {
 		return 1
 	}
 
-	m.verbose = cli.Verbose || cmd == Show
+	m.verbose = cli.Verbose || cmd == ShowIgnored
 	if cli.LogFile != "" {
 		m.logVerbose = cli.LogVerbose
 		f, err := os.OpenFile(cli.LogFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
@@ -435,7 +435,7 @@ func (m *Main) run() int {
 	}
 
 	if showRes, err := m.process(cmd, cli); err == nil {
-		if showRes && cmd != Show {
+		if showRes && cmd != ShowIgnored {
 			if m.printResult() != nil {
 				return 1
 			}

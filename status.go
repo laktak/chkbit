@@ -10,7 +10,7 @@ const (
 	StatusUpdate        Status = "upd"
 	StatusNew           Status = "new"
 	StatusOK            Status = "ok "
-	StatusMissing       Status = "del"
+	StatusDeleted       Status = "del"
 	StatusIgnore        Status = "ign"
 	StatusInfo          Status = "msg"
 

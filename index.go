@@ -10,7 +10,7 @@ import (
 
 const VERSION = 2 // index version
 var (
-	algoMd5 = "md5"
+	legacyAlgoMd5 = "md5"
 )
 
 type idxInfo struct {
@@ -103,7 +103,7 @@ func (i *Index) calcHashes(ignore *Ignore) {
 				// convert from py1 to new format
 				val = idxInfo{
 					ModTime: val.ModTime,
-					Algo:    &algoMd5,
+					Algo:    &legacyAlgoMd5,
 					Hash:    val.LegacyHash,
 				}
 				i.cur[name] = val
@@ -111,7 +111,7 @@ func (i *Index) calcHashes(ignore *Ignore) {
 			if val.Algo != nil {
 				algo = *val.Algo
 			}
-			if i.context.AddOnly && !i.mtimeChanged(name, val) {
+			if i.context.UpdateSkipCheck && !i.mtimeChanged(name, val) {
 				info = &val
 			} else {
 				info, err = i.calcFile(name, algo)
@@ -173,12 +173,12 @@ func (i *Index) checkFix(forceUpdateDmg bool) {
 			}
 		}
 	}
-	// track missing
+	// track deleted files
 	for name := range i.cur {
 		if _, ok := i.new[name]; !ok {
 			i.modified = true
-			if i.context.ShowMissing {
-				i.logFile(StatusMissing, name)
+			if i.context.LogDeleted {
+				i.logFile(StatusDeleted, name)
 			}
 		}
 	}
@@ -191,8 +191,8 @@ func (i *Index) checkFix(forceUpdateDmg bool) {
 	for _, name := range i.curDirList {
 		if !m[name] {
 			i.modified = true
-			if i.context.ShowMissing {
-				i.logDir(StatusMissing, name+"/")
+			if i.context.LogDeleted {
+				i.logDir(StatusDeleted, name+"/")
 			}
 		}
 	}
@@ -294,7 +294,7 @@ func (i *Index) load() error {
 			for name, item := range data1.Data {
 				i.cur[name] = idxInfo{
 					ModTime: item.ModTime,
-					Algo:    &algoMd5,
+					Algo:    &legacyAlgoMd5,
 					Hash:    &item.Hash,
 				}
 			}
