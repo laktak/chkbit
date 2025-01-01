@@ -1,6 +1,6 @@
 package main
 
-var headerHelp = `Alerts you of data corruption of your files, especially during transfers, backups and after recovery.
+var headerHelp = `Alerts you of data corruption in your files, especially during transfers, backups and after recovery.
 
  For help tips run "chkbit -H" or go to
  https://github.com/laktak/chkbit
