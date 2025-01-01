@@ -164,10 +164,10 @@ ls -l chkbit/chkbit
 chkbit is can also be used in other Go programs.
 
 ```
-go get github.com/laktak/chkbit/v5
+go get github.com/laktak/chkbit/v6
 ```
 
-For more information see the documentation on [pkg.go.dev](https://pkg.go.dev/github.com/laktak/chkbit/v5).
+For more information see the documentation on [pkg.go.dev](https://pkg.go.dev/github.com/laktak/chkbit/v6).
 
 
 ## FAQ

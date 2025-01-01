@@ -12,8 +12,8 @@ import (
 	"time"
 
 	"github.com/alecthomas/kong"
-	"github.com/laktak/chkbit/v5"
-	"github.com/laktak/chkbit/v5/cmd/chkbit/util"
+	"github.com/laktak/chkbit/v6"
+	"github.com/laktak/chkbit/v6/cmd/chkbit/util"
 	"github.com/laktak/lterm"
 )
 
