@@ -381,6 +381,11 @@ class Main:
 def main():
     try:
         Main().run()
+
+        print(
+            "\nNotice: you are using an obsolete version of this tool, there will be no further upgrades via pip!"
+        )
+        print("To upgrade go to https://github.com/laktak/chkbit")
     except KeyboardInterrupt:
         print("abort")
         sys.exit(1)
