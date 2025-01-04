@@ -1,15 +1,14 @@
 
 # chkbit
 
-chkbit alerts you of data corruption in your files, especially during transfers, backups and after recovery. It helps detect issues like disk damage, filesystem errors, and malware interference.
+chkbit alerts you to data corruption in your files, especially during transfers, backups, and after recovery. It helps detect issues like disk damage, filesystem errors, and malware interference.
 
-Some filesystems (like Btrfs and ZFS, but not APFS or NTFS) already protect your files with checksums. However when you move files between locations, separate checks have the advantage of confirming that the data was not modified during transit. So you know the photo on your disk is the same as the copy in your cloud backup. This also protects you from overwriting good data with bad copies.
+Some filesystems (like Btrfs and ZFS, but not APFS or NTFS) already protect your files with checksums. However, when you move files between locations, separate checks have the advantage of confirming that the data was not modified during transit. So you know the photo on your disk is the same as the copy in your cloud backup. This also protects you from overwriting good data with bad copies.
 
 ## version 6
 
 - chkbit adds a new `atom` mode to store all indices in a single file
-- if you come from an old version please check out the new simplified CLI syntax
-
+- If you come from an old version, please check out the new simplified CLI syntax
 
 ![gif of chkbit](https://raw.githubusercontent.com/wiki/laktak/chkbit/readme/chkbit.gif "chkbit")
 
@@ -36,16 +35,16 @@ Remember to always maintain multiple backups for comprehensive data protection.
 
 ## Usage
 
-First initialize the directory tree you wish to check.
+First, initialize the directory tree you wish to check.
 
 Here you can decide to run chkbit in
 
 - `split` mode, where it stores an index in each directory, or
 - `atom` mode, where the index is stored in a single file.
 
-See pro and cons below.
+See the pros and cons below.
 
-For example go to the `documents` folder, then run
+For example, go to the `documents` folder, then run
 
 ```
 chkbit init atom .
@@ -53,16 +52,15 @@ chkbit init atom .
 
 This will create the index in the current directory that also serves all subfolders. If you know git, this is the same concept.
 
-
-To add files to your index run update:
+To add files to your index, run update:
 
 ```
 chkbit update .
 ```
 
-chkbit will search the current and all subfolders, create hashes and add them to the store. It will also check existing hashes (skip with `-s`).
+chkbit will search the current and all subfolders, create hashes, and add them to the store. It will also check existing hashes (skip with `-s`).
 
-To only verify your files run
+To only verify your files, run
 
 ```
 chkbit check .
@@ -70,7 +68,7 @@ chkbit check .
 
 This is mainly used on your backup to verify that your files are intact (use `--workers=1` on spinning disks).
 
-For more info run
+For more info, run
 
 ```
 chkbit --help   # shows flags
@@ -86,27 +84,25 @@ In `atom` mode, chkbit uses a single `.chkbit-db` file to store all hashes (refe
 - pro: it does not clutter your system with hidden index files
 - con: you need to make sure to include `.chkbit-db` with your backup
 - con: when you move folders, the hashes do not move with them
-- con: if the index is damaged it affects the all hashes (manual recovery possible)
+- con: if the index is damaged, it affects all hashes (manual recovery possible)
 
 In `split` mode, chkbit creates a `.chkbit` file for the hashes in every folder (unless ignored):
 
 - pro: when you make a backup, even for partial backups, the correct hashes are also backed up
-- pro: if one index is damaged the others are still fine
-- pro when you move a directory the index moves with it
+- pro: if one index is damaged, the others are still fine
+- pro: when you move a directory, the index moves with it
 - con: while hidden, the `.chkbit` files are present in every directory
 
-In both modes the hashes are save in a json file. This is a future proof format that you can easily extract your hashes from. Since the hashes are standard algorithms you can check your files even if you can't get a copy of chkbit on some system in the future.
-
+In both modes, the hashes are saved in a JSON file. This is a future-proof format that you can easily extract your hashes from. Since the hashes are standard algorithms, you can check your files even if you can't get a copy of chkbit on some system in the future.
 
 ## Repair
 
-chkbit is designed to detect "damage". To repair your files you need to think ahead:
+chkbit is designed to detect "damage". To repair your files, you need to think ahead:
 
-- backup regularly
-- run chkbit *before* each backup
-- run chkbit *after* a backup on the backup media (readonly)
-- in case of any issues, *restore* from a checked backup medium.
-
+- Backup regularly
+- Run chkbit *before* each backup
+- Run chkbit *after* a backup on the backup media (read-only)
+- In case of any issues, *restore* from a checked backup medium.
 
 ## Ignore files
 
@@ -115,7 +111,7 @@ Add a `.chkbitignore` file containing the names of the files/directories you wis
 - each line should contain exactly one name
 - you may use Unix shell-style wildcards
   - `*` matches everything except `/`
-  - `?`  matches any single character except `/`
+  - `?` matches any single character except `/`
   - `[seq]` matches any character/range in seq
   - `[^seq]` matches any character/range not in seq
   - `\\` escape to match the following character
@@ -134,11 +130,11 @@ You can download the official chkbit binaries from the releases page and place i
 
 - https://github.com/laktak/chkbit/releases
 
-Prereleased versions can be found directly on the [GitHub Action](https://github.com/laktak/chkbit/actions). Click on the latest `ci` action and look for `prerelease-artifacts` at the bottom.
+Pre-released versions can be found directly on the [GitHub Action](https://github.com/laktak/chkbit/actions). Click on the latest `ci` action and look for `prerelease-artifacts` at the bottom.
 
 ### Homebrew (macOS and Linux)
 
-For macOS and Linux it can also be installed via [Homebrew](https://formulae.brew.sh/formula/chkbit):
+For macOS and Linux, it can also be installed via [Homebrew](https://formulae.brew.sh/formula/chkbit):
 
 ```shell
 brew install chkbit
@@ -151,7 +147,7 @@ Building from the source requires Go.
 - Either install it directly
 
 ```shell
-go install github.com/laktak/chkbit/v5/cmd/chkbit@latest
+go install github.com/laktak/chkbit/v6/cmd/chkbit@latest
 ```
 
 - or clone and build
@@ -163,40 +159,38 @@ chkbit/scripts/build
 ls -l chkbit/chkbit
 ```
 
-
 ## chkbit as a Go module
 
-chkbit is can also be used in other Go programs.
+chkbit can also be used in other Go programs.
 
 ```
 go get github.com/laktak/chkbit/v6
 ```
 
-For more information see the documentation on [pkg.go.dev](https://pkg.go.dev/github.com/laktak/chkbit/v6).
-
+For more information, see the documentation on [pkg.go.dev](https://pkg.go.dev/github.com/laktak/chkbit/v6).
 
 ## FAQ
 
 ### Should I run `chkbit` on my whole drive?
 
-You would typically run it only on *content* that you keep for a long time (e.g. your pictures, music, videos).
+You would typically run it only on *content* that you keep for a long time (e.g., your pictures, music, videos).
 
 ### How does chkbit work?
 
 chkbit operates on files.
 
-When run for the first time it records a hash of the file contents as well as the file modification time.
+When run for the first time, it records a hash of the file contents as well as the file modification time.
 
-When you run it again it first checks the modification time,
+When you run it again, it first checks the modification time:
 
-- if the time changed (because you made an edit) it records a new hash.
-- otherwise it will compare the current hash to the recorded value and report an error if they do not match.
+- if the time changed (because you made an edit), it records a new hash.
+- otherwise, it will compare the current hash to the recorded value and report an error if they do not match.
 
 ### I wish to use a different hash algorithm
 
 chkbit now uses blake3 by default. You can also specify `--algo sha512` or `--algo md5`.
 
-Note that existing index files will use the hash that they were created with. If you wish to update all hashes you need to delete your existing indexes first. A conversion mode may be added later (PR welcome).
+Note that existing index files will use the hash that they were created with. If you wish to update all hashes, you need to delete your existing indexes first.
 
 ### How can I delete the index files?
 
@@ -210,7 +204,7 @@ and add `-delete` to delete.
 
 ### Can I test if chkbit is working correctly?
 
-On Linux/macOS you can try the following.
+On Linux/macOS, you can try the following.
 
 Create a directory and initialize it:
 
@@ -270,4 +264,3 @@ error: detected 1 file with damage!
 ```
 
 `DMG` indicates damage.
-
