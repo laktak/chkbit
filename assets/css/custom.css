@@ -1,0 +1,32 @@
+﻿html[data-theme="dark"] {
+  --h1: #ffffff;
+  --h2: #ffffff;
+  --h3: #ffffff;
+  --h4: #ffffff;
+  --h5: #ffffff;
+}
+
+.illustration {
+  width:  100vw;
+  max-width:  100vw;
+  margin-left:  calc(50% - 50vw);
+  background: #000;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding-top: 10px;
+  padding-bottom: 10px;
+}
+
+.illustration img {
+  max-height: 400px;
+  max-width: 100%;
+}
+
+.illustration + p {
+    margin-top: 20px;
+}
+
+img.avatar {
+  border-radius: 21px !important;
+}
