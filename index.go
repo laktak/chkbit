@@ -64,9 +64,12 @@ func newIndex(context *Context, path string, files []string, dirList []string, r
 	}
 }
 
-func getMtime(path string) int64 {
-	info, _ := os.Stat(path)
-	return int64(info.ModTime().UnixNano() / 1e6)
+func getMtime(path string) (int64, error) {
+	if info, err := os.Stat(path); err != nil {
+		return 0, err
+	} else {
+		return int64(info.ModTime().UnixNano() / 1e6), nil
+	}
 }
 
 func (i *Index) getIndexFilepath() string {
@@ -203,13 +206,16 @@ func (i *Index) checkFix(forceUpdateDmg bool) {
 }
 
 func (i *Index) mtimeChanged(name string, ii idxInfo) bool {
-	mtime := getMtime(filepath.Join(i.path, name))
+	mtime, _ := getMtime(filepath.Join(i.path, name))
 	return ii.ModTime != mtime
 }
 
 func (i *Index) calcFile(name string, a string) (*idxInfo, error) {
 	path := filepath.Join(i.path, name)
-	mtime := getMtime(path)
+	mtime, err := getMtime(path)
+	if err != nil {
+		return nil, err
+	}
 	h, err := Hashfile(path, a, i.context.perfMonBytes)
 	if err != nil {
 		return nil, err

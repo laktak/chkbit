@@ -384,7 +384,7 @@ func (m *Main) run() int {
 
 	if cli.Quiet {
 		m.progress = Quiet
-	} else if fileInfo, _ := os.Stdout.Stat(); (fileInfo.Mode() & os.ModeCharDevice) == 0 {
+	} else if fileInfo, err := os.Stdout.Stat(); err == nil && (fileInfo.Mode()&os.ModeCharDevice) == 0 {
 		m.progress = Summary
 	} else if cli.Plain {
 		m.progress = Plain
