@@ -84,6 +84,7 @@ type CLI struct {
 	NoRecurse    bool   `short:"R" help:"do not recurse into subdirectories" negatable:""`
 	NoDirInIndex bool   `short:"D" help:"do not track directories in the index" negatable:""`
 	NoConfig     bool   `help:"ignore the config file"`
+	MaxDepth     int    `default:0 help:"process a directory only if it is N or fewer levels below the specified path(s); 0 for no limit"`
 	LogFile      string `short:"l" help:"write to a logfile if specified"`
 	LogVerbose   bool   `help:"verbose logging" negatable:""`
 	Algo         string `default:"blake3" help:"hash algorithm: md5, sha512, blake3"`
@@ -256,6 +257,7 @@ func (m *Main) process(cmd Command, cli CLI) (bool, error) {
 	m.context.SkipSymlinks = cli.SkipSymlinks
 	m.context.SkipSubdirectories = cli.NoRecurse
 	m.context.TrackDirectories = !cli.NoDirInIndex
+	m.context.MaxDepth = cli.MaxDepth
 
 	st, root, err := chkbit.LocateIndex(pathList[0], chkbit.IndexTypeAny, m.context.IndexFilename)
 	if err != nil {

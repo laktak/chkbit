@@ -23,6 +23,7 @@ type Context struct {
 	SkipSubdirectories bool
 	IndexFilename      string
 	IgnoreFilename     string
+	MaxDepth           int
 
 	WorkQueue chan *WorkItem
 	LogQueue  chan *LogEvent
@@ -141,7 +142,7 @@ func (context *Context) Process(pathList []string) {
 	}
 	go func() {
 		for _, path := range pathList {
-			context.scanDir(path, nil)
+			context.scanDir(path, nil, 1)
 		}
 		for i := 0; i < context.NumWorkers; i++ {
 			context.endWork()
@@ -155,7 +156,7 @@ func (context *Context) Process(pathList []string) {
 	context.LogQueue <- nil
 }
 
-func (context *Context) scanDir(root string, parentIgnore *Ignore) {
+func (context *Context) scanDir(root string, parentIgnore *Ignore, depth int) {
 	files, err := os.ReadDir(root)
 	if err != nil {
 		context.logErr(root+"/", err)
@@ -200,9 +201,9 @@ func (context *Context) scanDir(root string, parentIgnore *Ignore) {
 
 	context.addWork(root, filesToIndex, dirList, ignore)
 
-	if !context.SkipSubdirectories {
+	if !context.SkipSubdirectories && (context.MaxDepth == 0 || depth < context.MaxDepth) {
 		for _, name := range dirList {
-			context.scanDir(filepath.Join(root, name), ignore)
+			context.scanDir(filepath.Join(root, name), ignore, depth+1)
 		}
 	}
 }
