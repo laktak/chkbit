@@ -109,7 +109,7 @@ type Main struct {
 	bps        *util.RateCalc
 }
 
-func (m *Main) logFile(text string) {
+func (m *Main) log(text string) {
 	m.logger.Println(time.Now().UTC().Format("2006-01-02 15:04:05"), text)
 }
 
@@ -121,31 +121,25 @@ func (m *Main) logInfo(col, text string) {
 			fmt.Println(text)
 		}
 	}
-	m.logFile(text)
+	m.log(text)
 }
 
-func (m *Main) logError(text string) {
-	text = chkbit.StatusPanic.String() + " " + text
-
-	if m.progress == Fancy {
-		lterm.Write(termAlertFG)
-		fmt.Fprintln(os.Stderr, text)
-		lterm.Write(lterm.Reset)
-	} else {
-		fmt.Fprintln(os.Stderr, text)
-	}
-
-	m.logFile(text)
+func (m *Main) printStderr(msg string) {
+	fmt.Fprintln(os.Stderr, msg)
 }
 
-func (m *Main) printError(text string) {
+func (m *Main) printErr(text string) {
 	if m.progress == Fancy {
 		lterm.Write(termAlertFG)
-		fmt.Fprintln(os.Stderr, text)
+		m.printStderr(text)
 		lterm.Write(lterm.Reset)
 	} else {
-		fmt.Fprintln(os.Stderr, text)
+		m.printStderr(text)
 	}
+}
+
+func (m *Main) printError(err error) {
+	m.printErr("error: " + err.Error())
 }
 
 func (m *Main) logStatus(stat chkbit.Status, message string) bool {
@@ -160,7 +154,7 @@ func (m *Main) logStatus(stat chkbit.Status, message string) bool {
 	}
 
 	if m.logVerbose || !stat.IsVerbose() {
-		m.logFile(stat.String() + " " + message)
+		m.log(stat.String() + " " + message)
 	}
 
 	if m.verbose || !stat.IsVerbose() {
@@ -239,17 +233,17 @@ func (m *Main) process(cmd Command, cli CLI) (bool, error) {
 	switch cmd {
 	case Check:
 		pathList = cli.Check.Paths
-		m.logFile("chkbit check " + strings.Join(pathList, ", "))
+		m.log("chkbit check " + strings.Join(pathList, ", "))
 	case Update:
 		pathList = cli.Update.Paths
 		m.context.UpdateIndex = true
 		m.context.UpdateSkipCheck = cli.Update.SkipExisting
 		m.context.ForceUpdateDmg = cli.Update.Force
-		m.logFile("chkbit update " + strings.Join(pathList, ", "))
+		m.log("chkbit update " + strings.Join(pathList, ", "))
 	case ShowIgnored:
 		pathList = cli.ShowIgnored.Paths
 		m.context.ShowIgnoredOnly = true
-		m.logFile("chkbit show-ignored " + strings.Join(pathList, ", "))
+		m.log("chkbit show-ignored " + strings.Join(pathList, ", "))
 	}
 
 	m.context.LogDeleted = cli.LogDeleted
@@ -328,22 +322,22 @@ func (m *Main) printResult() error {
 
 	// summarize errors
 	if len(m.dmgList) > 0 {
-		m.printError("chkbit detected damage in these files:")
-		for _, err := range m.dmgList {
-			fmt.Fprintln(os.Stderr, err)
+		m.printErr("chkbit detected damage in these files:")
+		for _, item := range m.dmgList {
+			m.printStderr(item)
 		}
 		n := len(m.dmgList)
 		status := fmt.Sprintf("error: detected %s with damage!", util.LangNum1MutateSuffix(n, "file"))
-		m.logFile(status)
-		m.printError(status)
+		m.log(status)
+		m.printErr(status)
 	}
 
 	if len(m.errList) > 0 {
 		status := "chkbit ran into errors"
-		m.logFile(status + "!")
-		m.printError(status + ":")
-		for _, err := range m.errList {
-			fmt.Fprintln(os.Stderr, err)
+		m.log(status + "!")
+		m.printErr(status + ":")
+		for _, item := range m.errList {
+			m.printStderr(item)
 		}
 	}
 
@@ -408,7 +402,9 @@ func (m *Main) run() int {
 			st = chkbit.IndexTypeAtom
 		}
 		if err := chkbit.InitializeIndexStore(st, cli.Init.Path, cli.IndexName, cli.Init.Force); err != nil {
-			m.logError(err.Error())
+			text := chkbit.StatusPanic.String() + " " + err.Error()
+			m.printErr(text)
+			m.log(text)
 			return 1
 		}
 		return 0
@@ -429,7 +425,7 @@ func (m *Main) run() int {
 		m.logVerbose = cli.LogVerbose
 		f, err := os.OpenFile(cli.LogFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
 		if err != nil {
-			fmt.Println("error: " + err.Error())
+			m.printError(err)
 			return 1
 		}
 		defer f.Close()
@@ -443,7 +439,7 @@ func (m *Main) run() int {
 			}
 		}
 	} else {
-		fmt.Println("error: " + err.Error())
+		m.printError(err)
 		return 1
 	}
 
@@ -454,7 +450,7 @@ func main() {
 	defer func() {
 		if r := recover(); r != nil {
 			// panic
-			fmt.Println(r)
+			fmt.Fprintln(os.Stderr, r)
 			os.Exit(1)
 		}
 	}()

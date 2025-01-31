@@ -413,7 +413,7 @@ func (s *indexStore) importCache(dbFile string) error {
 		return errors.New("invalid json (end)")
 	}
 
-	return err
+	return nil
 }
 
 func getAtomFile(path, indexName, suffix string) string {

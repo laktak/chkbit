@@ -14,9 +14,10 @@ var (
 )
 
 type idxInfo struct {
-	ModTime    int64   `json:"mod"`
-	Algo       *string `json:"a,omitempty"`
-	Hash       *string `json:"h,omitempty"`
+	ModTime int64   `json:"mod"`
+	Algo    *string `json:"a,omitempty"`
+	Hash    *string `json:"h,omitempty"`
+	// convert from legacy python format
 	LegacyHash *string `json:"md5,omitempty"`
 }
 
@@ -29,13 +30,11 @@ type indexFile struct {
 	Dir []string `json:"dirlist,omitempty"`
 }
 
-type idxInfo1 struct {
-	ModTime int64  `json:"mod"`
-	Hash    string `json:"md5"`
-}
-
-type indexFile1 struct {
-	Data map[string]idxInfo1 `json:"data"`
+type indexLoadResult struct {
+	fileList  map[string]idxInfo
+	dirList   []string
+	converted bool
+	verified  bool
 }
 
 type Index struct {
@@ -267,20 +266,53 @@ func (i *Index) save() (bool, error) {
 }
 
 func (i *Index) load() error {
-	file, err := i.context.store.Load(i.getIndexFilepath())
-	if file == nil || err != nil {
+	fileData, err := i.context.store.Load(i.getIndexFilepath())
+	if fileData == nil || err != nil {
 		return err
 	}
 	i.modified = false
+
+	res, err := loadIndexFile(fileData)
+	i.cur = res.fileList
+	if !res.verified {
+		i.logFile(StatusErrorIdx, i.getIndexFilepath())
+	}
+	i.modified = !res.verified || res.converted
+
+	// dirs
+	if res.dirList != nil {
+		slices.Sort(res.dirList)
+		i.curDirList = res.dirList
+	}
+
+	return nil
+}
+
+func loadIndexFile(fileData []byte) (*indexLoadResult, error) {
+
+	type idxInfo1 struct {
+		ModTime int64  `json:"mod"`
+		Hash    string `json:"md5"`
+	}
+
+	type indexFile1 struct {
+		Data map[string]idxInfo1 `json:"data"`
+	}
+
+	if fileData == nil {
+		return nil, nil
+	}
+	res := &indexLoadResult{}
+
 	var data indexFile
-	err = json.Unmarshal(file, &data)
+	err := json.Unmarshal(fileData, &data)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if data.IdxRaw != nil {
-		err = json.Unmarshal(data.IdxRaw, &i.cur)
+		err = json.Unmarshal(data.IdxRaw, &res.fileList)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		text := data.IdxRaw
 		if data.IdxHash != hashMd5(text) {
@@ -288,30 +320,25 @@ func (i *Index) load() error {
 			text, _ = json.Marshal(data.IdxRaw)
 		} else {
 		}
-		if data.IdxHash != hashMd5(text) {
-			i.modified = true
-			i.logFile(StatusErrorIdx, i.getIndexFilepath())
-		}
+		res.verified = data.IdxHash == hashMd5(text)
 	} else {
 		var data1 indexFile1
-		json.Unmarshal(file, &data1)
+		json.Unmarshal(fileData, &data1)
+		res.fileList = make(map[string]idxInfo)
 		if data1.Data != nil {
 			// convert from js to new format
 			for name, item := range data1.Data {
-				i.cur[name] = idxInfo{
+				res.fileList[name] = idxInfo{
 					ModTime: item.ModTime,
 					Algo:    &legacyAlgoMd5,
 					Hash:    &item.Hash,
 				}
 			}
 		}
+		res.converted = true
+		res.verified = true
 	}
 
-	// dirs
-	if data.Dir != nil {
-		slices.Sort(data.Dir)
-		i.curDirList = data.Dir
-	}
-
-	return nil
+	res.dirList = data.Dir
+	return res, nil
 }
