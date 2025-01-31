@@ -53,7 +53,8 @@ var (
 
 type CLI struct {
 	Check struct {
-		Paths []string `arg:""  name:"paths" help:"directories to check"`
+		Paths   []string `arg:""  name:"paths" help:"directories to check"`
+		SkipNew bool     `short:"s" help:"verify index only, do not report new files"`
 	} `cmd:"" help:"chkbit will verify files in readonly mode"`
 
 	Update struct {
@@ -101,6 +102,7 @@ type Main struct {
 	dmgList    []string
 	errList    []string
 	verbose    bool
+	hideNew    bool
 	logger     *log.Logger
 	logVerbose bool
 	progress   Progress
@@ -143,7 +145,7 @@ func (m *Main) printError(err error) {
 }
 
 func (m *Main) logStatus(stat chkbit.Status, message string) bool {
-	if stat == chkbit.StatusUpdateIndex {
+	if stat == chkbit.StatusUpdateIndex || m.hideNew && stat == chkbit.StatusNew {
 		return false
 	}
 
@@ -234,6 +236,7 @@ func (m *Main) process(cmd Command, cli CLI) (bool, error) {
 	case Check:
 		pathList = cli.Check.Paths
 		m.log("chkbit check " + strings.Join(pathList, ", "))
+		m.hideNew = cli.Check.SkipNew
 	case Update:
 		pathList = cli.Update.Paths
 		m.context.UpdateIndex = true
@@ -285,6 +288,13 @@ func (m *Main) process(cmd Command, cli CLI) (bool, error) {
 
 func (m *Main) printResult() error {
 
+	numIdxUpd := m.context.NumIdxUpd
+	numNew := m.context.NumNew
+	numUpd := m.context.NumUpd
+	if m.hideNew {
+		numNew = 0
+	}
+
 	if m.progress != Quiet {
 		mode := ""
 		if !m.context.UpdateIndex {
@@ -302,18 +312,18 @@ func (m *Main) printResult() error {
 		}
 
 		if m.context.UpdateIndex {
-			if m.context.NumIdxUpd > 0 {
-				m.logInfo(termOKFG, fmt.Sprintf("- %s updated", util.LangNum1Choice(m.context.NumIdxUpd, "directory was", "directories were")))
-				m.logInfo(termOKFG, fmt.Sprintf("- %s added", util.LangNum1Choice(m.context.NumNew, "file hash was", "file hashes were")))
-				m.logInfo(termOKFG, fmt.Sprintf("- %s updated", util.LangNum1Choice(m.context.NumUpd, "file hash was", "file hashes were")))
+			if numIdxUpd > 0 {
+				m.logInfo(termOKFG, fmt.Sprintf("- %s updated", util.LangNum1Choice(numIdxUpd, "directory was", "directories were")))
+				m.logInfo(termOKFG, fmt.Sprintf("- %s added", util.LangNum1Choice(numNew, "file hash was", "file hashes were")))
+				m.logInfo(termOKFG, fmt.Sprintf("- %s updated", util.LangNum1Choice(numUpd, "file hash was", "file hashes were")))
 				if m.context.NumDel > 0 {
 					m.logInfo(termOKFG, fmt.Sprintf("- %s been removed", util.LangNum1Choice(m.context.NumDel, "file/directory has", "files/directories have")))
 				}
 			}
-		} else if m.context.NumNew+m.context.NumUpd+m.context.NumDel > 0 {
+		} else if numNew+numUpd+m.context.NumDel > 0 {
 			m.logInfo(termAlertFG, "No changes were made")
-			m.logInfo(termAlertFG, fmt.Sprintf("- %s would have been added", util.LangNum1MutateSuffix(m.context.NumNew, "file")))
-			m.logInfo(termAlertFG, fmt.Sprintf("- %s would have been updated", util.LangNum1MutateSuffix(m.context.NumUpd, "file")))
+			m.logInfo(termAlertFG, fmt.Sprintf("- %s would have been added", util.LangNum1MutateSuffix(numNew, "file")))
+			m.logInfo(termAlertFG, fmt.Sprintf("- %s would have been updated", util.LangNum1MutateSuffix(numUpd, "file")))
 			if m.context.NumDel > 0 {
 				m.logInfo(termAlertFG, fmt.Sprintf("- %s would have been removed", util.LangNum1Choice(m.context.NumDel, "file/directory", "files/directories")))
 			}
