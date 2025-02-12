@@ -69,6 +69,10 @@ type CLI struct {
 		Force bool   `help:"force init if a index already exists"`
 	} `cmd:"" help:"initialize a new index at the given path that manages the path and all its subfolders (see -h)"`
 
+	Fuse struct {
+		Path string `arg:"" help:"directory for the index"`
+	} `cmd:"" help:"merge all indexes (split&atom) under this path into an atom index"`
+
 	ShowIgnored struct {
 		Paths []string `arg:""  name:"paths" help:"directories to list"`
 	} `cmd:"" help:"show ignored files (see tips)"`
@@ -223,7 +227,7 @@ func (m *Main) showStatus() {
 	}
 }
 
-func (m *Main) process(cmd Command, cli CLI) (bool, error) {
+func (m *Main) processCmd(cmd Command, cli CLI) (bool, error) {
 
 	var err error
 	m.context, err = chkbit.NewContext(cli.Workers, cli.Algo, cli.IndexName, cli.IgnoreName)
@@ -418,6 +422,19 @@ func (m *Main) run() int {
 			return 1
 		}
 		return 0
+	case "fuse <path>":
+		m.logInfo("", fmt.Sprintf("chkbit fuse %s", cli.Fuse.Path))
+		log := func(text string) {
+			fmt.Println(text)
+			m.log(text)
+		}
+		if err := chkbit.FuseIndexStore(cli.Fuse.Path, cli.IndexName, cli.SkipSymlinks, cli.Verbose, log); err != nil {
+			text := chkbit.StatusPanic.String() + " " + err.Error()
+			m.printErr(text)
+			m.log(text)
+			return 1
+		}
+		return 0
 	case "tips":
 		fmt.Println(strings.ReplaceAll(helpTips, "<config-file>", configPath))
 		return 0
@@ -442,7 +459,7 @@ func (m *Main) run() int {
 		m.logger = log.New(f, "", 0)
 	}
 
-	if showRes, err := m.process(cmd, cli); err == nil {
+	if showRes, err := m.processCmd(cmd, cli); err == nil {
 		if showRes && cmd != ShowIgnored {
 			if m.printResult() != nil {
 				return 1
