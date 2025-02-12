@@ -61,7 +61,7 @@ func NewContext(numWorkers int, hashAlgo string, indexFilename string, ignoreFil
 		WorkQueue:      make(chan *WorkItem, numWorkers*10),
 		LogQueue:       logQueue,
 		PerfQueue:      make(chan *PerfEvent, numWorkers*10),
-		store:          &indexStore{logQueue: logQueue},
+		store:          &indexStore{logErr: func(message string) { logQueue <- &LogEvent{StatusPanic, "indexstore: " + message} }},
 	}, nil
 }
 
@@ -125,7 +125,7 @@ func (context *Context) Process(pathList []string) {
 	context.NumUpd = 0
 	context.NumDel = 0
 
-	err := context.store.Open(!context.UpdateIndex, context.NumWorkers)
+	err := context.store.Open(!context.UpdateIndex, context.NumWorkers*10)
 	if err != nil {
 		context.logErr("index", err)
 		context.LogQueue <- nil
@@ -163,21 +163,6 @@ func (context *Context) scanDir(root string, parentIgnore *Ignore, depth int) {
 		return
 	}
 
-	isDir := func(file os.DirEntry, path string) bool {
-		if file.IsDir() {
-			return true
-		}
-		ft := file.Type()
-		if !context.SkipSymlinks && ft&os.ModeSymlink != 0 {
-			rpath, err := filepath.EvalSymlinks(path)
-			if err == nil {
-				fi, err := os.Lstat(rpath)
-				return err == nil && fi.IsDir()
-			}
-		}
-		return false
-	}
-
 	var dirList []string
 	var filesToIndex []string
 
@@ -188,7 +173,7 @@ func (context *Context) scanDir(root string, parentIgnore *Ignore, depth int) {
 
 	for _, file := range files {
 		path := filepath.Join(root, file.Name())
-		if isDir(file, path) {
+		if isDir(file, path, context.SkipSymlinks) {
 			if !ignore.shouldIgnore(file.Name()) {
 				dirList = append(dirList, file.Name())
 			} else {
@@ -231,4 +216,19 @@ func (context *Context) UseAtomIndexStore(root string, pathList []string) (relat
 	context.store.UseAtom(root, context.IndexFilename, len(relativePathList) == 1 && relativePathList[0] == ".")
 
 	return
+}
+
+func isDir(file os.DirEntry, path string, skipSymlinks bool) bool {
+	if file.IsDir() {
+		return true
+	}
+	ft := file.Type()
+	if !skipSymlinks && ft&os.ModeSymlink != 0 {
+		rpath, err := filepath.EvalSymlinks(path)
+		if err == nil {
+			fi, err := os.Lstat(rpath)
+			return err == nil && fi.IsDir()
+		}
+	}
+	return false
 }

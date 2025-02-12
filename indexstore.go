@@ -29,9 +29,13 @@ const (
 	atomDataSuffix = `}}`
 )
 
+var (
+	errMissingIndex = errors.New("index could not be located (see chkbit init)")
+)
+
 type indexStore struct {
 	indexName string
-	logQueue  chan *LogEvent
+	logErr    storeLogPanicFunc
 
 	readOnly     bool
 	atom         bool
@@ -45,6 +49,8 @@ type indexStore struct {
 	storeDbQueue chan *storeDbItem
 	storeDbWg    sync.WaitGroup
 }
+
+type storeLogPanicFunc func(string)
 
 type storeDbItem struct {
 	key   []byte
@@ -60,11 +66,7 @@ func (s *indexStore) UseAtom(path string, indexName string, refresh bool) {
 	s.refresh = refresh
 }
 
-func (s *indexStore) logErr(message string) {
-	s.logQueue <- &LogEvent{StatusPanic, "indexstore: " + message}
-}
-
-func (s *indexStore) Open(readOnly bool, numWorkers int) error {
+func (s *indexStore) Open(readOnly bool, dbQueueSize int) error {
 	var err error
 	s.readOnly = readOnly
 	if s.atom {
@@ -105,7 +107,7 @@ func (s *indexStore) Open(readOnly bool, numWorkers int) error {
 				s.connW = s.connR
 			}
 
-			s.storeDbQueue = make(chan *storeDbItem, numWorkers*10)
+			s.storeDbQueue = make(chan *storeDbItem, dbQueueSize)
 			s.storeDbWg.Add(1)
 			go s.storeDbWorker()
 		}
@@ -346,32 +348,8 @@ func (s *indexStore) importCache(dbFile string) error {
 		return errors.New("invalid json (start)")
 	}
 
-	// we only accept our fixed json, in this order:
-
-	// type: chkbit
-	var jsonType string
-	if t, err := decoder.Token(); err != nil || t != "type" {
-		return errors.New("invalid json (type)")
-	}
-	if err := decoder.Decode(&jsonType); err != nil || jsonType != "chkbit" {
-		return errors.New("invalid json (chkbit)")
-	}
-
-	// version: 6
-	var jsonVersion int
-	if t, err := decoder.Token(); err != nil || t != "version" {
-		return errors.New("invalid json (version)")
-	}
-	if err := decoder.Decode(&jsonVersion); err != nil || jsonVersion != 6 {
-		return errors.New("invalid json (version 6)")
-	}
-
-	// data:
-	if t, err := decoder.Token(); err != nil || t != "data" {
-		return errors.New("invalid json (data)")
-	}
-	if t, err := decoder.Token(); err != nil || t != json.Delim('{') {
-		return errors.New("invalid json (data start)")
+	if err = verifyAtomJsonHead(decoder); err != nil {
+		return err
 	}
 
 	if err = connW.Update(func(tx *bolt.Tx) error {
@@ -416,6 +394,37 @@ func (s *indexStore) importCache(dbFile string) error {
 	return nil
 }
 
+func verifyAtomJsonHead(decoder *json.Decoder) error {
+	// we only accept our fixed json, in this order:
+
+	// type: chkbit
+	var jsonType string
+	if t, err := decoder.Token(); err != nil || t != "type" {
+		return errors.New("invalid json (type)")
+	}
+	if err := decoder.Decode(&jsonType); err != nil || jsonType != "chkbit" {
+		return errors.New("invalid json (chkbit)")
+	}
+
+	// version: 6
+	var jsonVersion int
+	if t, err := decoder.Token(); err != nil || t != "version" {
+		return errors.New("invalid json (version)")
+	}
+	if err := decoder.Decode(&jsonVersion); err != nil || jsonVersion != 6 {
+		return errors.New("invalid json (version 6)")
+	}
+
+	// data:
+	if t, err := decoder.Token(); err != nil || t != "data" {
+		return errors.New("invalid json (data)")
+	}
+	if t, err := decoder.Token(); err != nil || t != json.Delim('{') {
+		return errors.New("invalid json (data start)")
+	}
+	return nil
+}
+
 func getAtomFile(path, indexName, suffix string) string {
 	return filepath.Join(path, indexName+atomSuffix+suffix)
 }
@@ -428,8 +437,8 @@ func getMarkerFile(st IndexType, path, indexName string) string {
 	}
 }
 
-func existsMarkerFile(st IndexType, path, indexName string) (ok bool, err error) {
-	fileName := getMarkerFile(st, path, indexName)
+func existsMarkerFile(st IndexType, path, indexName string) (fileName string, ok bool, err error) {
+	fileName = getMarkerFile(st, path, indexName)
 	_, err = os.Stat(fileName)
 	if err == nil {
 		ok = true
@@ -492,7 +501,7 @@ func LocateIndex(startPath string, filter IndexType, indexName string) (st Index
 		var ok bool
 		for _, st = range IndexTypeList {
 			if filter == IndexTypeAny || filter == st {
-				if ok, err = existsMarkerFile(st, path, indexName); ok || err != nil {
+				if _, ok, err = existsMarkerFile(st, path, indexName); ok || err != nil {
 					return
 				}
 			}
@@ -501,7 +510,7 @@ func LocateIndex(startPath string, filter IndexType, indexName string) (st Index
 		path = filepath.Dir(path)
 		if len(path) < 1 || path[len(path)-1] == filepath.Separator {
 			// reached root
-			err = errors.New("index could not be located (see chkbit init)")
+			err = errMissingIndex
 			return
 		}
 	}
