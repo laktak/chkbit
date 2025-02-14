@@ -273,6 +273,9 @@ func (i *Index) load() error {
 	i.modified = false
 
 	res, err := loadIndexFile(fileData)
+	if err != nil {
+		return err
+	}
 	i.cur = res.fileList
 	if !res.verified {
 		i.logFile(StatusErrorIdx, i.getIndexFilepath())
@@ -300,7 +303,7 @@ func loadIndexFile(fileData []byte) (*indexLoadResult, error) {
 	}
 
 	if fileData == nil {
-		return nil, nil
+		return nil, errors.New("fileData is nil")
 	}
 	res := &indexLoadResult{}
 
@@ -318,7 +321,6 @@ func loadIndexFile(fileData []byte) (*indexLoadResult, error) {
 		if data.IdxHash != hashMd5(text) {
 			// old versions may have saved the JSON encoded with extra spaces
 			text, _ = json.Marshal(data.IdxRaw)
-		} else {
 		}
 		res.verified = data.IdxHash == hashMd5(text)
 	} else {
