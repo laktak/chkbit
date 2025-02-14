@@ -101,15 +101,6 @@ func (i *Index) calcHashes(ignore *Ignore) {
 		algo := i.context.HashAlgo
 		if val, ok := i.cur[name]; ok {
 			// existing file
-			if val.LegacyHash != nil {
-				// convert from py1 to new format
-				val = idxInfo{
-					ModTime: val.ModTime,
-					Algo:    &legacyAlgoMd5,
-					Hash:    val.LegacyHash,
-				}
-				i.cur[name] = val
-			}
 			if val.Algo != nil {
 				algo = *val.Algo
 			}
@@ -323,6 +314,18 @@ func loadIndexFile(fileData []byte) (*indexLoadResult, error) {
 			text, _ = json.Marshal(data.IdxRaw)
 		}
 		res.verified = data.IdxHash == hashMd5(text)
+
+		// convert from py1/md5 to new format
+		for name, item := range res.fileList {
+			if item.LegacyHash != nil {
+				item2 := idxInfo{
+					ModTime: item.ModTime,
+					Algo:    &legacyAlgoMd5,
+					Hash:    item.LegacyHash,
+				}
+				res.fileList[name] = item2
+			}
+		}
 	} else {
 		var data1 indexFile1
 		json.Unmarshal(fileData, &data1)
