@@ -63,6 +63,11 @@ type CLI struct {
 		Force        bool     `help:"force update of damaged items (advanced usage only)"`
 	} `cmd:"" help:"add and update modified files, also checking existing ones (see flags with -h)"`
 
+	Dedup struct {
+		Mode string `arg:"" enum:"show,detect" help:"todo"`
+		Path string `arg:"" help:"directory for the index"`
+	} `cmd:"" help:"todo"`
+
 	Init struct {
 		Mode  string `arg:"" enum:"split,atom" help:"split|atom: split mode creates one index per directory while in atom mode a single index is created at the given path"`
 		Path  string `arg:"" help:"directory for the index"`
@@ -381,6 +386,19 @@ func (m *Main) runCmd(cmd Command, cli CLI) int {
 	return 0
 }
 
+func (m *Main) runDedup(mode string, indexName string, root string) int {
+	switch mode {
+	case "detect":
+		if err := chkbit.DedupDetect(root, indexName); err != nil {
+			m.printError(err)
+			return 1
+		}
+	case "show":
+		chkbit.DedupShow(root, indexName)
+	}
+	return 0
+}
+
 func (m *Main) run() int {
 
 	if len(os.Args) < 2 {
@@ -466,6 +484,18 @@ func (m *Main) run() int {
 			return 1
 		}
 		return 0
+	case "dedup <mode> <path>":
+		m.logInfo("", "chkbit dedup "+cli.Dedup.Path)
+		st, root, err := chkbit.LocateIndex(cli.Dedup.Path, chkbit.IndexTypeAny, cli.IndexName)
+		if err != nil {
+			m.printError(err)
+			return 1
+		}
+		if st != chkbit.IndexTypeAtom {
+			fmt.Println("error: dedup is incompatible with split mode")
+			return 1
+		}
+		return m.runDedup(cli.Dedup.Mode, cli.IndexName, root)
 	case "tips":
 		fmt.Println(strings.ReplaceAll(helpTips, "<config-file>", configPath))
 		return 0
