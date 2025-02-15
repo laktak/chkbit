@@ -1,7 +1,6 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -227,12 +226,12 @@ func (m *Main) showStatus() {
 	}
 }
 
-func (m *Main) processCmd(cmd Command, cli CLI) (bool, error) {
-
+func (m *Main) runCmd(cmd Command, cli CLI) int {
 	var err error
 	m.context, err = chkbit.NewContext(cli.Workers, cli.Algo, cli.IndexName, cli.IgnoreName)
 	if err != nil {
-		return false, err
+		m.printError(err)
+		return 1
 	}
 
 	var pathList []string
@@ -262,7 +261,8 @@ func (m *Main) processCmd(cmd Command, cli CLI) (bool, error) {
 
 	st, root, err := chkbit.LocateIndex(pathList[0], chkbit.IndexTypeAny, m.context.IndexFilename)
 	if err != nil {
-		return false, err
+		m.printError(err)
+		return 1
 	}
 
 	if st == chkbit.IndexTypeAtom {
@@ -270,11 +270,13 @@ func (m *Main) processCmd(cmd Command, cli CLI) (bool, error) {
 		if err == nil {
 			// pathList is relative to root
 			if err = os.Chdir(root); err != nil {
-				return false, err
+				m.printError(err)
+				return 1
 			}
 			m.logInfo("", "Using atom-index in "+root)
 		} else {
-			return false, err
+			m.printError(err)
+			return 1
 		}
 	}
 
@@ -287,11 +289,11 @@ func (m *Main) processCmd(cmd Command, cli CLI) (bool, error) {
 	m.context.Process(pathList)
 	wg.Wait()
 
-	return true, nil
-}
+	if cmd == ShowIgnored {
+		return 0
+	}
 
-func (m *Main) printResult() error {
-
+	// result
 	numIdxUpd := m.context.NumIdxUpd
 	numNew := m.context.NumNew
 	numUpd := m.context.NumUpd
@@ -356,9 +358,9 @@ func (m *Main) printResult() error {
 	}
 
 	if len(m.dmgList) > 0 || len(m.errList) > 0 {
-		return errors.New("fail")
+		return 1
 	}
-	return nil
+	return 0
 }
 
 func (m *Main) run() int {
@@ -375,7 +377,6 @@ func (m *Main) run() int {
 
 	var cli CLI
 	var ctx *kong.Context
-	var cmd Command
 	ctx = kong.Parse(&cli,
 		kong.Name("chkbit"),
 		kong.Description(headerHelp),
@@ -402,13 +403,26 @@ func (m *Main) run() int {
 		m.progress = Fancy
 	}
 
+	m.verbose = cli.Verbose
+	if cli.LogFile != "" {
+		m.logVerbose = cli.LogVerbose
+		f, err := os.OpenFile(cli.LogFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
+		if err != nil {
+			m.printError(err)
+			return 1
+		}
+		defer f.Close()
+		m.logger = log.New(f, "", 0)
+	}
+
 	switch ctx.Command() {
 	case "check <paths>":
-		cmd = Check
+		return m.runCmd(Check, cli)
 	case "update <paths>":
-		cmd = Update
+		return m.runCmd(Update, cli)
 	case "show-ignored <paths>":
-		cmd = ShowIgnored
+		m.verbose = true
+		return m.runCmd(ShowIgnored, cli)
 	case "init <mode> <path>":
 		m.logInfo("", fmt.Sprintf("chkbit init %s %s", cli.Init.Mode, cli.Init.Path))
 		st := chkbit.IndexTypeSplit
@@ -425,8 +439,7 @@ func (m *Main) run() int {
 	case "fuse <path>":
 		m.logInfo("", fmt.Sprintf("chkbit fuse %s", cli.Fuse.Path))
 		log := func(text string) {
-			fmt.Println(text)
-			m.log(text)
+			m.logInfo("", text)
 		}
 		if err := chkbit.FuseIndexStore(cli.Fuse.Path, cli.IndexName, cli.SkipSymlinks, cli.Verbose, log); err != nil {
 			text := chkbit.StatusPanic.String() + " " + err.Error()
@@ -446,31 +459,6 @@ func (m *Main) run() int {
 		fmt.Println("unknown: " + ctx.Command())
 		return 1
 	}
-
-	m.verbose = cli.Verbose || cmd == ShowIgnored
-	if cli.LogFile != "" {
-		m.logVerbose = cli.LogVerbose
-		f, err := os.OpenFile(cli.LogFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
-		if err != nil {
-			m.printError(err)
-			return 1
-		}
-		defer f.Close()
-		m.logger = log.New(f, "", 0)
-	}
-
-	if showRes, err := m.processCmd(cmd, cli); err == nil {
-		if showRes && cmd != ShowIgnored {
-			if m.printResult() != nil {
-				return 1
-			}
-		}
-	} else {
-		m.printError(err)
-		return 1
-	}
-
-	return 0
 }
 
 func main() {

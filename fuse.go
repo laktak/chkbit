@@ -67,11 +67,11 @@ func (f *fuseStore) fuseScanDir(root, prefix string) {
 		path := filepath.Join(root, file.Name())
 		if isDir(file, path, f.skipSymlinks) {
 			newPrefix := prefix + file.Name() + "/"
-			if fileName, ok, err := existsMarkerFile(IndexTypeAtom, path, f.indexName); ok {
+			if fileName, ok, _ := existsMarkerFile(IndexTypeAtom, path, f.indexName); ok {
 				if err = f.fuseAtom(fileName, newPrefix); err != nil {
 					f.logErr("fuse " + path + "/:" + err.Error())
 				}
-			} else if fileName, ok, err := existsMarkerFile(IndexTypeSplit, path, f.indexName); ok {
+			} else if fileName, ok, _ := existsMarkerFile(IndexTypeSplit, path, f.indexName); ok {
 				if err = f.fuseSplit(fileName, newPrefix); err != nil {
 					f.logErr("fuse " + path + "/:" + err.Error())
 				}
