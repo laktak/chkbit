@@ -17,6 +17,7 @@ jq '.idx | to_entries | map({key: .key, value: (.value.h)}) | from_entries' .chk
       "mod":       file modification time (unix)
       "a":         hash algorithm
       "h":         hash
+      "s":         size (optional, 2025-02-16)
     }
   },
   "idx_hash":      hash of the index itself
