@@ -30,7 +30,8 @@ const (
 )
 
 var (
-	errMissingIndex = errors.New("index could not be located (see chkbit init)")
+	errMissingIndex          = errors.New("index could not be located (see chkbit init)")
+	indexStoreDataBucketName = []byte("data")
 )
 
 type indexStore struct {
@@ -99,7 +100,7 @@ func (s *indexStore) Open(readOnly bool, dbQueueSize int) error {
 				s.connW, err = bolt.Open(s.cacheFileW, 0600, getBoltOptions(false))
 				if err == nil {
 					err = s.connW.Update(func(tx *bolt.Tx) error {
-						_, err := tx.CreateBucketIfNotExists([]byte("data"))
+						_, err := tx.CreateBucketIfNotExists(indexStoreDataBucketName)
 						return err
 					})
 				}
@@ -179,7 +180,7 @@ func (s *indexStore) Load(indexPath string) ([]byte, error) {
 			return nil, errors.New("db not loaded")
 		}
 		err = s.connR.View(func(tx *bolt.Tx) error {
-			b := tx.Bucket([]byte("data"))
+			b := tx.Bucket(indexStoreDataBucketName)
 			value = b.Get([]byte(indexPath))
 			return nil
 		})
@@ -238,7 +239,7 @@ func (s *indexStore) storeDbWorker() {
 			if tx, err = s.connW.Begin(true); err != nil {
 				break
 			}
-			b = tx.Bucket([]byte("data"))
+			b = tx.Bucket(indexStoreDataBucketName)
 		}
 
 		if err = b.Put(item.key, item.value); err != nil {
@@ -275,7 +276,7 @@ func (s *indexStore) exportCache(dbFile, suffix string) (exportFile string, err 
 	}
 
 	if err = connR.View(func(tx *bolt.Tx) error {
-		b := tx.Bucket([]byte("data"))
+		b := tx.Bucket(indexStoreDataBucketName)
 		c := b.Cursor()
 		var ierr error
 		first := true
@@ -329,12 +330,6 @@ func (s *indexStore) importCache(dbFile string) error {
 		return err
 	}
 	defer connW.Close()
-	if err = connW.Update(func(tx *bolt.Tx) error {
-		_, err = tx.CreateBucketIfNotExists([]byte("data"))
-		return err
-	}); err != nil {
-		return err
-	}
 
 	file, err := os.Open(getAtomFile(s.atomPath, s.indexName, ""))
 	if err != nil {
@@ -353,6 +348,11 @@ func (s *indexStore) importCache(dbFile string) error {
 	}
 
 	if err = connW.Update(func(tx *bolt.Tx) error {
+		b, err := tx.CreateBucketIfNotExists(indexStoreDataBucketName)
+		if err != nil {
+			return err
+		}
+
 		for {
 			t, err := decoder.Token()
 			if err != nil {
@@ -377,7 +377,6 @@ func (s *indexStore) importCache(dbFile string) error {
 				return err
 			}
 
-			b := tx.Bucket([]byte("data"))
 			if err = b.Put([]byte(key), value); err != nil {
 				return err
 			}
