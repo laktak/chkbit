@@ -9,15 +9,14 @@ import (
 )
 
 const VERSION = 2 // index version
-var (
-	legacyAlgoMd5 = "md5"
-)
 
 type idxInfo struct {
 	ModTime int64   `json:"mod"`
 	Algo    *string `json:"a,omitempty"`
 	Hash    *string `json:"h,omitempty"`
-	// convert from legacy python format
+	// 2025-02-16
+	Size *int64 `json:"s,omitempty"`
+	// legacy python format
 	LegacyHash *string `json:"md5,omitempty"`
 }
 
@@ -63,12 +62,13 @@ func newIndex(context *Context, path string, files []string, dirList []string, r
 	}
 }
 
-func getMtime(path string) (int64, error) {
-	if info, err := os.Stat(path); err != nil {
-		return 0, err
-	} else {
-		return int64(info.ModTime().UnixNano() / 1e6), nil
+func getMtS(path string) (mtime, size int64, err error) {
+	var info os.FileInfo
+	if info, err = os.Stat(path); err == nil {
+		mtime = int64(info.ModTime().UnixNano() / 1e6)
+		size = info.Size()
 	}
+	return
 }
 
 func (i *Index) getIndexFilepath() string {
@@ -196,25 +196,26 @@ func (i *Index) checkFix(forceUpdateDmg bool) {
 }
 
 func (i *Index) mtimeChanged(name string, ii idxInfo) bool {
-	mtime, _ := getMtime(filepath.Join(i.path, name))
+	mtime, _, _ := getMtS(filepath.Join(i.path, name))
 	return ii.ModTime != mtime
 }
 
-func (i *Index) calcFile(name string, a string) (*idxInfo, error) {
+func (i *Index) calcFile(name string, algo string) (*idxInfo, error) {
 	path := filepath.Join(i.path, name)
-	mtime, err := getMtime(path)
+	mtime, size, err := getMtS(path)
 	if err != nil {
 		return nil, err
 	}
-	h, err := Hashfile(path, a, i.context.perfMonBytes)
+	hash, err := Hashfile(path, algo, i.context.perfMonBytes)
 	if err != nil {
 		return nil, err
 	}
 	i.context.perfMonFiles(1)
 	return &idxInfo{
 		ModTime: mtime,
-		Algo:    &a,
-		Hash:    &h,
+		Algo:    &algo,
+		Hash:    &hash,
+		Size:    &size,
 	}, nil
 }
 
@@ -292,6 +293,8 @@ func loadIndexFile(fileData []byte) (*indexLoadResult, error) {
 	type indexFile1 struct {
 		Data map[string]idxInfo1 `json:"data"`
 	}
+
+	var legacyAlgoMd5 = "md5"
 
 	if fileData == nil {
 		return nil, errors.New("fileData is nil")
