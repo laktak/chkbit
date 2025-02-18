@@ -11,21 +11,14 @@ import (
 	bolt "go.etcd.io/bbolt"
 )
 
-var (
-	ddStatusBucketName = []byte("status")
-	ddStatusName       = []byte("1")
-	ddItemBucketName   = []byte("item")
-)
-
 type dedup struct {
 	rootPath  string
 	indexName string
-	status    ddStatus
-	minSize   int64
 
-	conn *bolt.DB
+	LogChan chan *DedupEvent
 
-	logQueue chan *LogEvent
+	status ddStatus
+	conn   *bolt.DB
 }
 
 type ddStatus struct {
@@ -33,39 +26,54 @@ type ddStatus struct {
 }
 
 type ddBag struct {
-	Gen      int       `json:"gen"`
-	Size     int64     `json:"s"`
-	ItemList []*ddItem `json:"item,omitempty"`
+	Gen      int          `json:"gen"`
+	Size     int64        `json:"size"`
+	ItemList []*DedupItem `json:"item"`
 }
 
-type ddItem struct {
+type DedupBag struct {
+	Hash     string       `json:"hash"`
+	Size     int64        `json:"size"`
+	ItemList []*DedupItem `json:"item"`
+}
+
+type DedupItem struct {
 	Path   string `json:"path"`
-	Merged bool   `json:"merged"`
+	Merged bool   `json:"done"`
+}
+
+type DedupEvent struct {
+	Message string
 }
 
 const (
 	dedupSuffix = "-dedup.db"
 )
 
-func (d *dedup) logErr(message string) {
-	d.logQueue <- &LogEvent{StatusPanic, "dedup: " + message}
+var (
+	ddStatusBucketName = []byte("status")
+	ddStatusName       = []byte("1")
+	ddItemBucketName   = []byte("item")
+)
+
+func (d *dedup) logMsg(message string) {
+	d.LogChan <- &DedupEvent{message}
 }
 
-func getDedupFile(path, indexName, suffix string) string {
-	return filepath.Join(path, indexName+dedupSuffix+suffix)
-}
-
-func (d *dedup) Open(path string, indexName string) error {
+func NewDedup(path string, indexName string) (*dedup, error) {
 	var err error
-	d.rootPath = path
-	d.indexName = indexName
-	dedupFile := getDedupFile(path, indexName, d.indexName)
+	d := &dedup{
+		rootPath:  path,
+		indexName: indexName,
+		LogChan:   make(chan *DedupEvent),
+	}
+	dedupFile := filepath.Join(path, d.indexName+dedupSuffix)
 
 	d.conn, err = bolt.Open(dedupFile, 0600, getBoltOptions(false))
 	if err != nil {
-		return err
+		return nil, err
 	}
-	err = d.conn.Update(func(tx *bolt.Tx) error {
+	if err = d.conn.Update(func(tx *bolt.Tx) error {
 		sb, err := tx.CreateBucketIfNotExists(ddStatusBucketName)
 		if err != nil {
 			return err
@@ -78,18 +86,10 @@ func (d *dedup) Open(path string, indexName string) error {
 
 		_, err = tx.CreateBucketIfNotExists(ddItemBucketName)
 		return err
-	})
-	return err
-}
-
-func (d *dedup) nextGen(tx *bolt.Tx) (err error) {
-	if sb := tx.Bucket(ddStatusBucketName); sb != nil {
-		d.status.Gen += 1
-		if data, err := json.Marshal(&d.status); err == nil {
-			err = sb.Put(ddStatusName, data)
-		}
+	}); err != nil {
+		return nil, err
 	}
-	return
+	return d, nil
 }
 
 func (d *dedup) Finish() error {
@@ -102,7 +102,17 @@ func (d *dedup) Finish() error {
 	return nil
 }
 
-func (d *dedup) DetectDupes() (err error) {
+func (d *dedup) nextGen(tx *bolt.Tx) (err error) {
+	if sb := tx.Bucket(ddStatusBucketName); sb != nil {
+		d.status.Gen += 1
+		if data, err := json.Marshal(&d.status); err == nil {
+			err = sb.Put(ddStatusName, data)
+		}
+	}
+	return
+}
+
+func (d *dedup) DetectDupes(minSize int64) (err error) {
 
 	file, err := os.Open(getAtomFile(d.rootPath, d.indexName, ""))
 	if err != nil {
@@ -150,7 +160,7 @@ func (d *dedup) DetectDupes() (err error) {
 
 		for k, v := range index.fileList {
 
-			if v.Size != nil && *v.Size >= 0 && *v.Size < d.minSize {
+			if v.Size != nil && *v.Size >= 0 && *v.Size < minSize {
 				continue
 			}
 
@@ -164,7 +174,7 @@ func (d *dedup) DetectDupes() (err error) {
 				bag.Size = *v.Size
 			}
 			bag.ItemList = append(bag.ItemList,
-				&ddItem{
+				&DedupItem{
 					Path: key + k,
 				})
 			all[*v.Hash] = bag
@@ -187,20 +197,24 @@ func (d *dedup) DetectDupes() (err error) {
 			if len(item.ItemList) <= 1 {
 				continue
 			}
+			bhash := []byte(hash)
 
 			// combine with old status
-			itemData := b.Get([]byte(hash))
-			if itemData != nil {
-				var item2 ddBag
-				err := json.Unmarshal(itemData, &item2)
-				if err != nil {
-					for _, o := range item2.ItemList {
-						for _, p := range item.ItemList {
+			prevData := b.Get(bhash)
+			if prevData != nil {
+				var prevItem ddBag
+				err := json.Unmarshal(prevData, &prevItem)
+				if err == nil {
+					for _, o := range prevItem.ItemList {
+						for i, p := range item.ItemList {
 							if o.Path == p.Path {
-								p.Merged = o.Merged
+								item.ItemList[i].Merged = o.Merged
 							}
 						}
 					}
+				} else {
+					// todo
+					return err
 				}
 			}
 
@@ -208,7 +222,7 @@ func (d *dedup) DetectDupes() (err error) {
 			if data, err := json.Marshal(item); err != nil {
 				return err
 			} else {
-				if err = b.Put([]byte(hash), data); err != nil {
+				if err = b.Put(bhash, data); err != nil {
 					return err
 				}
 			}
@@ -240,8 +254,8 @@ func (d *dedup) DetectDupes() (err error) {
 	return nil
 }
 
-func (d *dedup) Show() error {
-	var list []*ddBag
+func (d *dedup) Show() ([]*DedupBag, error) {
+	var list []*DedupBag
 	if err := d.conn.View(func(tx *bolt.Tx) error {
 		b := tx.Bucket(ddItemBucketName)
 		c := b.Cursor()
@@ -250,13 +264,17 @@ func (d *dedup) Show() error {
 			if err := json.Unmarshal(v, &bag); err != nil {
 				return err
 			}
-			list = append(list, &bag)
+			list = append(list, &DedupBag{
+				Hash:     string(k),
+				Size:     bag.Size,
+				ItemList: bag.ItemList,
+			})
 		}
 		return nil
 	}); err != nil {
-		return err
+		return nil, err
 	}
-	slices.SortFunc(list, func(a, b *ddBag) int {
+	slices.SortFunc(list, func(a, b *DedupBag) int {
 		r := b.Size - a.Size
 		if r < 0 {
 			return -1
@@ -266,29 +284,78 @@ func (d *dedup) Show() error {
 			return 0
 		}
 	})
-	for i, bag := range list {
-		fmt.Println("#", i, bag.Size)
-		for _, item := range bag.ItemList {
-			fmt.Println("-", item.Path, item.Merged)
+	return list, nil
+}
+
+func (d *dedup) Dedup(hashes []string) error {
+
+	// todo
+	if err := os.Chdir(d.rootPath); err != nil {
+		return err
+	}
+
+	if len(hashes) == 0 {
+		if bags, err := d.Show(); err == nil {
+			for _, o := range bags {
+				hashes = append(hashes, o.Hash)
+			}
+		} else {
+			return err
 		}
 	}
+
+	if err := d.conn.Update(func(tx *bolt.Tx) error {
+		b := tx.Bucket(ddItemBucketName)
+
+		for _, hash := range hashes {
+			var bag ddBag
+			bhash := []byte(hash)
+			v := b.Get(bhash)
+			if err := json.Unmarshal(v, &bag); err != nil {
+				return err
+			}
+			list := bag.ItemList
+			slices.SortFunc(list, func(a, b *DedupItem) int {
+				if a.Merged == b.Merged {
+					return 0
+				}
+				if a.Merged {
+					return -1
+				}
+				return 1
+			})
+			// merged are at the top
+			for i := 1; i < len(list); i++ {
+				if !list[i].Merged {
+					//todo
+					// a := filepath.Join(d.rootPath, list[0].Path)
+					// b := filepath.Join(d.rootPath, list[i].Path)
+
+					a := list[0].Path
+					b := list[i].Path
+					d.logMsg(fmt.Sprintf("dedup %s %s", a, b))
+					if err := deduplicateFiles(a, b); err == nil {
+						list[0].Merged = true
+						list[i].Merged = true
+					} else {
+						d.logMsg(fmt.Sprintf("fail %s", err))
+						// log fail
+					}
+				}
+			}
+
+			if data, err := json.Marshal(&bag); err == nil {
+				if err := b.Put(bhash, data); err != nil {
+					return err
+				}
+			} else {
+				return err
+			}
+
+		}
+		return nil
+	}); err != nil {
+		return err
+	}
 	return nil
-}
-
-func DedupDetect(path string, indexName string) error {
-	d := &dedup{minSize: 8192}
-	if err := d.Open(path, indexName); err != nil {
-		return err
-	}
-	defer d.Finish()
-	return d.DetectDupes()
-}
-
-func DedupShow(path string, indexName string) error {
-	d := &dedup{}
-	if err := d.Open(path, indexName); err != nil {
-		return err
-	}
-	defer d.Finish()
-	return d.Show()
 }

@@ -53,20 +53,17 @@ var (
 
 type CLI struct {
 	Check struct {
-		Paths   []string `arg:""  name:"paths" help:"directories to check"`
+		Paths   []string `arg:"" name:"paths" help:"directories to check"`
 		SkipNew bool     `short:"s" help:"verify index only, do not report new files"`
 	} `cmd:"" help:"chkbit will verify files in readonly mode"`
 
 	Update struct {
-		Paths        []string `arg:""  name:"paths" help:"directories to update"`
+		Paths        []string `arg:"" name:"paths" help:"directories to update"`
 		SkipExisting bool     `short:"s" help:"only add new and modified files, do not check existing (quicker)"`
 		Force        bool     `help:"force update of damaged items (advanced usage only)"`
 	} `cmd:"" help:"add and update modified files, also checking existing ones (see flags with -h)"`
 
-	Dedup struct {
-		Mode string `arg:"" enum:"show,detect" help:"todo"`
-		Path string `arg:"" help:"directory for the index"`
-	} `cmd:"" help:"todo"`
+	Dedup CLIDedup `cmd:"" help:"todo"`
 
 	Init struct {
 		Mode  string `arg:"" enum:"split,atom" help:"split|atom: split mode creates one index per directory while in atom mode a single index is created at the given path"`
@@ -79,7 +76,7 @@ type CLI struct {
 	} `cmd:"" help:"merge all indexes (split&atom) under this path into an atom index"`
 
 	ShowIgnored struct {
-		Paths []string `arg:""  name:"paths" help:"directories to list"`
+		Paths []string `arg:"" name:"paths" help:"directories to list"`
 	} `cmd:"" help:"show ignored files (see tips)"`
 
 	Tips struct {
@@ -104,6 +101,13 @@ type CLI struct {
 	Plain        bool   `help:"show plain status instead of being fancy" negatable:""`
 	Quiet        bool   `short:"q" help:"quiet, don't show progress/information" negatable:""`
 	Verbose      bool   `short:"v" help:"verbose output" negatable:""`
+}
+
+type CLIDedup struct {
+	Mode    string   `arg:"" enum:"show,detect,go" help:"todo"`
+	Path    string   `arg:"" help:"directory for the index"`
+	Hashes  []string `arg:"" optional:"" name:"hashes" help:"hashes to select"`
+	MinSize int64    `default:8192 help:"minimum file size"`
 }
 
 type Main struct {
@@ -386,15 +390,48 @@ func (m *Main) runCmd(cmd Command, cli CLI) int {
 	return 0
 }
 
-func (m *Main) runDedup(mode string, indexName string, root string) int {
-	switch mode {
-	case "detect":
-		if err := chkbit.DedupDetect(root, indexName); err != nil {
-			m.printError(err)
-			return 1
+func (m *Main) runDedup(dd *CLIDedup, indexName string, root string) int {
+
+	d, err := chkbit.NewDedup(root, indexName)
+	if err != nil {
+		m.printError(err)
+		return 1
+	}
+	defer d.Finish()
+
+	resultCh := make(chan error, 1)
+	go func() {
+		var err error
+		switch dd.Mode {
+		case "detect":
+			err = d.DetectDupes(dd.MinSize)
+		case "show":
+			if list, err := d.Show(); err == nil {
+				for i, bag := range list {
+					fmt.Printf("# %s %s [%d]\n", bag.Hash, util.FormatSize(bag.Size), i)
+					for _, item := range bag.ItemList {
+						c := "-"
+						if item.Merged {
+							c = "+"
+						}
+						fmt.Println(c, item.Path)
+					}
+				}
+			}
+		case "go":
+			err = d.Dedup(dd.Hashes)
 		}
-	case "show":
-		chkbit.DedupShow(root, indexName)
+		resultCh <- err
+		close(d.LogChan)
+	}()
+
+	for l := range d.LogChan {
+		fmt.Println(l.Message)
+	}
+
+	if err = <-resultCh; err != nil {
+		m.printError(err)
+		return 1
 	}
 	return 0
 }
@@ -484,7 +521,7 @@ func (m *Main) run() int {
 			return 1
 		}
 		return 0
-	case "dedup <mode> <path>":
+	case "dedup <mode> <path>", "dedup <mode> <path> <hashes>":
 		m.logInfo("", "chkbit dedup "+cli.Dedup.Path)
 		st, root, err := chkbit.LocateIndex(cli.Dedup.Path, chkbit.IndexTypeAny, cli.IndexName)
 		if err != nil {
@@ -495,7 +532,7 @@ func (m *Main) run() int {
 			fmt.Println("error: dedup is incompatible with split mode")
 			return 1
 		}
-		return m.runDedup(cli.Dedup.Mode, cli.IndexName, root)
+		return m.runDedup(&cli.Dedup, cli.IndexName, root)
 	case "tips":
 		fmt.Println(strings.ReplaceAll(helpTips, "<config-file>", configPath))
 		return 0
