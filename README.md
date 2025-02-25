@@ -15,4 +15,7 @@ chkbit alerts you to data corruption in your files, especially during transfers,
 ## version 6
 
 - chkbit adds a new `atom` mode to store all indices in a single file
+- there is a new `fuse` command to merge split indexes into an atom
 - If you come from an old version, please check out the new simplified CLI syntax
+- Note that some commands have suboption (e.g. to skip checking existing hashes, see `chkbit update -h`)
+
