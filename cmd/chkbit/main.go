@@ -5,6 +5,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -178,11 +179,17 @@ func (m *Main) logStatus(stat chkbit.Status, message string) bool {
 	return false
 }
 
-func (m *Main) showStatus() {
+func (m *Main) handleProgress() {
+
+	abortChan := make(chan os.Signal, 1)
+	signal.Notify(abortChan, os.Interrupt)
+
 	last := time.Now().Add(-updateInterval)
 	stat := ""
 	for {
 		select {
+		case <-abortChan:
+			m.context.Abort()
 		case item := <-m.context.LogQueue:
 			if item == nil {
 				if m.progress == Fancy {
@@ -284,7 +291,7 @@ func (m *Main) runCmd(cmd Command, cli CLI) int {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		m.showStatus()
+		m.handleProgress()
 	}()
 	m.context.Process(pathList)
 	wg.Wait()
@@ -299,6 +306,10 @@ func (m *Main) runCmd(cmd Command, cli CLI) int {
 	numUpd := m.context.NumUpd
 	if m.hideNew {
 		numNew = 0
+	}
+
+	if m.context.DidAbort() {
+		m.logInfo(termAlertFG, "Aborted")
 	}
 
 	if m.progress != Quiet {

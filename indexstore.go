@@ -117,7 +117,7 @@ func (s *indexStore) Open(readOnly bool, dbQueueSize int) error {
 	return err
 }
 
-func (s *indexStore) Finish() (updated bool, err error) {
+func (s *indexStore) Finish(abort bool) (updated bool, err error) {
 
 	if !s.atom {
 		return
@@ -148,17 +148,19 @@ func (s *indexStore) Finish() (updated bool, err error) {
 			cacheFile = s.cacheFileW
 		}
 
-		var newFile string
-		if newFile, err = s.exportCache(cacheFile, newSuffix); err != nil {
-			return
-		}
+		if !abort {
+			var newFile string
+			if newFile, err = s.exportCache(cacheFile, newSuffix); err != nil {
+				return
+			}
 
-		atomFile := getAtomFile(s.atomPath, s.indexName, "")
-		if err = os.Rename(atomFile, getAtomFile(s.atomPath, s.indexName, bakSuffix)); err != nil {
-			return
-		}
-		if err = os.Rename(newFile, atomFile); err != nil {
-			return
+			atomFile := getAtomFile(s.atomPath, s.indexName, "")
+			if err = os.Rename(atomFile, getAtomFile(s.atomPath, s.indexName, bakSuffix)); err != nil {
+				return
+			}
+			if err = os.Rename(newFile, atomFile); err != nil {
+				return
+			}
 		}
 
 		if s.cacheFileR != "" {

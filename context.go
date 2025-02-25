@@ -32,11 +32,20 @@ type Context struct {
 	store *indexStore
 
 	mutex     sync.Mutex
+	doAbort   bool
 	NumTotal  int
 	NumIdxUpd int
 	NumNew    int
 	NumUpd    int
 	NumDel    int
+}
+
+func (context *Context) Abort() {
+	context.doAbort = true
+}
+
+func (context *Context) DidAbort() bool {
+	return context.doAbort
 }
 
 func NewContext(numWorkers int, hashAlgo string, indexFilename string, ignoreFilename string) (*Context, error) {
@@ -150,13 +159,18 @@ func (context *Context) Process(pathList []string) {
 	}()
 	wg.Wait()
 
-	if _, err := context.store.Finish(); err != nil {
+	if _, err := context.store.Finish(context.doAbort); err != nil {
 		context.logErr("indexstore", err)
 	}
 	context.LogQueue <- nil
 }
 
 func (context *Context) scanDir(root string, parentIgnore *Ignore, depth int) {
+
+	if context.doAbort {
+		return
+	}
+
 	files, err := os.ReadDir(root)
 	if err != nil {
 		context.logErr(root+"/", err)

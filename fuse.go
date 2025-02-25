@@ -44,7 +44,7 @@ func FuseIndexStore(path, indexName string, skipSymlinks, verbose bool, log Fuse
 
 	fuse.fuseScanDir(path, "")
 
-	if _, err := store.Finish(); err != nil {
+	if _, err := store.Finish(false); err != nil {
 		return err
 	}
 
