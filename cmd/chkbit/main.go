@@ -308,8 +308,11 @@ func (m *Main) runCmd(cmd Command, cli CLI) int {
 		numNew = 0
 	}
 
+	didUpdate := m.context.UpdateIndex
 	if m.context.DidAbort() {
-		m.logInfo(termAlertFG, "Aborted")
+		if m.context.GetIndexType() == chkbit.IndexTypeAtom {
+			didUpdate = false
+		}
 	}
 
 	if m.progress != Quiet {
@@ -328,7 +331,7 @@ func (m *Main) runCmd(cmd Command, cli CLI) int {
 			m.logInfo("", fmt.Sprintf("- %.2f MB/second", (float64(m.bps.Total)+float64(m.bps.Current))/float64(sizeMB)/elapsedS))
 		}
 
-		if m.context.UpdateIndex {
+		if didUpdate {
 			if numIdxUpd > 0 {
 				m.logInfo(termOKFG, fmt.Sprintf("- %s updated", util.LangNum1Choice(numIdxUpd, "directory was", "directories were")))
 				m.logInfo(termOKFG, fmt.Sprintf("- %s added", util.LangNum1Choice(numNew, "file hash was", "file hashes were")))
@@ -366,6 +369,10 @@ func (m *Main) runCmd(cmd Command, cli CLI) int {
 		for _, item := range m.errList {
 			m.printStderr(item)
 		}
+	}
+
+	if m.context.DidAbort() {
+		m.logInfo(termAlertFG, "Aborted")
 	}
 
 	if len(m.dmgList) > 0 || len(m.errList) > 0 {

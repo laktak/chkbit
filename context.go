@@ -48,6 +48,13 @@ func (context *Context) DidAbort() bool {
 	return context.doAbort
 }
 
+func (context *Context) GetIndexType() IndexType {
+	if context.store.atom {
+		return IndexTypeAtom
+	}
+	return IndexTypeSplit
+}
+
 func NewContext(numWorkers int, hashAlgo string, indexFilename string, ignoreFilename string) (*Context, error) {
 	if indexFilename[0] != '.' {
 		return nil, errors.New("the index filename must start with a dot")
