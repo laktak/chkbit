@@ -63,8 +63,6 @@ type CLI struct {
 		Force        bool     `help:"force update of damaged items (advanced usage only)"`
 	} `cmd:"" help:"add and update modified files, also checking existing ones (see flags with -h)"`
 
-	Dedup CLIDedup `cmd:"" help:"todo"`
-
 	Init struct {
 		Mode  string `arg:"" enum:"split,atom" help:"split|atom: split mode creates one index per directory while in atom mode a single index is created at the given path"`
 		Path  string `arg:"" help:"directory for the index"`
@@ -74,6 +72,18 @@ type CLI struct {
 	Fuse struct {
 		Path string `arg:"" help:"directory for the index"`
 	} `cmd:"" help:"merge all indexes (split&atom) under this path into an atom index"`
+
+	Dedup CLIDedup `cmd:"" help:"todo"`
+
+	Util struct {
+		Fileblocks struct {
+			Paths []string `arg:"" name:"paths" help:"files to check"`
+		} `cmd:"" help:"check if the given files occupy the same block on disk; Linux only"`
+
+		Filededup struct {
+			Paths []string `arg:"" name:"paths" help:"files to dedup"`
+		} `cmd:"" help:"calls the kernel to deduplicate blocks for the given files on disk, files must match; Linux with supported filesystems only"`
+	} `cmd:"" help:"Utility functions"`
 
 	ShowIgnored struct {
 		Paths []string `arg:"" name:"paths" help:"directories to list"`
@@ -408,7 +418,9 @@ func (m *Main) runDedup(dd *CLIDedup, indexName string, root string) int {
 		case "show":
 			if list, err := d.Show(); err == nil {
 				for i, bag := range list {
-					fmt.Printf("# %s %s [%d]\n", bag.Hash, util.FormatSize(bag.Size), i)
+					fmt.Printf("#%d %s [%s, shared=%s, exclusive=%s]\n",
+						i, bag.Hash, util.FormatSize(bag.Size),
+						util.FormatSize(bag.SizeShared), util.FormatSize(bag.SizeExclusive))
 					for _, item := range bag.ItemList {
 						c := "-"
 						if item.Merged {
@@ -418,6 +430,7 @@ func (m *Main) runDedup(dd *CLIDedup, indexName string, root string) int {
 					}
 				}
 			}
+			// todo show json
 		case "go":
 			err = d.Dedup(dd.Hashes)
 		}
@@ -533,6 +546,52 @@ func (m *Main) run() int {
 			return 1
 		}
 		return m.runDedup(&cli.Dedup, cli.IndexName, root)
+
+	case "util fileblocks <paths>":
+		paths := cli.Util.Fileblocks.Paths
+		if len(paths) < 2 {
+			fmt.Println("error: supply two or more paths")
+			return 1
+		}
+		var first chkbit.FileExtentList
+		for i, path := range paths {
+			blocks, err := chkbit.GetFileExtents(path)
+			if err != nil {
+				m.printError(err)
+				return 1
+			}
+			if i == 0 {
+				first = blocks
+			} else {
+				if !chkbit.ExtentsMatch(first, blocks) {
+					m.printErr(fmt.Sprintf("Files do not occupie the same blocks (%s, %s).", paths[0], path))
+					return 1
+				}
+			}
+		}
+		fmt.Println("Files occupie the same blocks.")
+		return 0
+
+	case "util filededup <paths>":
+		paths := cli.Util.Filededup.Paths
+		if len(paths) < 2 {
+			fmt.Println("error: supply two or more paths")
+			return 1
+		}
+		var first string
+		for i, path := range paths {
+			if i == 0 {
+				first = path
+			} else {
+				if err = chkbit.DeduplicateFiles(first, path); err != nil {
+					m.printErr(fmt.Sprintf("Unable to deduplicate (%s, %s): %s", paths[0], path, err.Error()))
+					return 1
+				}
+			}
+		}
+		fmt.Println("Dedup success.")
+		return 0
+
 	case "tips":
 		fmt.Println(strings.ReplaceAll(helpTips, "<config-file>", configPath))
 		return 0

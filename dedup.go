@@ -26,15 +26,19 @@ type ddStatus struct {
 }
 
 type ddBag struct {
-	Gen      int          `json:"gen"`
-	Size     int64        `json:"size"`
-	ItemList []*DedupItem `json:"item"`
+	Gen           int          `json:"gen"`
+	Size          int64        `json:"size"`
+	SizeShared    int64        `json:"shared"`
+	SizeExclusive int64        `json:"exclusive"`
+	ItemList      []*DedupItem `json:"item"`
 }
 
 type DedupBag struct {
-	Hash     string       `json:"hash"`
-	Size     int64        `json:"size"`
-	ItemList []*DedupItem `json:"item"`
+	Hash          string       `json:"hash"`
+	Size          int64        `json:"size"`
+	SizeShared    int64        `json:"shared"`
+	SizeExclusive int64        `json:"exclusive"`
+	ItemList      []*DedupItem `json:"item"`
 }
 
 type DedupItem struct {
@@ -200,21 +204,76 @@ func (d *dedup) DetectDupes(minSize int64) (err error) {
 			bhash := []byte(hash)
 
 			// combine with old status
-			prevData := b.Get(bhash)
-			if prevData != nil {
-				var prevItem ddBag
-				err := json.Unmarshal(prevData, &prevItem)
-				if err == nil {
-					for _, o := range prevItem.ItemList {
-						for i, p := range item.ItemList {
-							if o.Path == p.Path {
-								item.ItemList[i].Merged = o.Merged
+			/*
+				prevData := b.Get(bhash)
+				if prevData != nil {
+					var prevItem ddBag
+					err := json.Unmarshal(prevData, &prevItem)
+					if err == nil {
+						for _, o := range prevItem.ItemList {
+							for i, p := range item.ItemList {
+								if o.Path == p.Path {
+									item.ItemList[i].Merged = o.Merged
+								}
 							}
 						}
+					} else {
+						// todo
+						return err
 					}
+				}
+			*/
+
+			type match struct {
+				id int
+				el FileExtentList
+			}
+
+			var all []match
+			for _, p := range item.ItemList {
+				if res, err := GetFileExtents(filepath.Join(d.rootPath, p.Path)); err == nil {
+					all = append(all, match{-1, res})
 				} else {
-					// todo
-					return err
+					// todo err
+					fmt.Print(err.Error())
+					all = append(all, match{-1, nil})
+				}
+			}
+
+			for i := range all {
+				if all[i].id != -1 {
+					continue
+				}
+				all[i].id = i
+				for j := i + 1; j < len(all); j++ {
+					if all[j].id == -1 && ExtentsMatch(all[i].el, all[j].el) {
+						all[j].id = i
+					}
+				}
+			}
+
+			maxId := 0
+			maxCount := 0
+			count := map[int]int{}
+			for _, o := range all {
+				count[o.id] += 1
+			}
+			for id, c := range count {
+				if c > maxCount {
+					maxId = id
+					maxCount = c
+				}
+			}
+
+			item.SizeShared = 0
+			item.SizeExclusive = 0
+			for i := range all {
+				merged := all[i].id == maxId
+				item.ItemList[i].Merged = merged
+				if merged {
+					item.SizeShared += item.Size
+				} else if all[i].id == i {
+					item.SizeExclusive += item.Size
 				}
 			}
 
@@ -265,9 +324,11 @@ func (d *dedup) Show() ([]*DedupBag, error) {
 				return err
 			}
 			list = append(list, &DedupBag{
-				Hash:     string(k),
-				Size:     bag.Size,
-				ItemList: bag.ItemList,
+				Hash:          string(k),
+				Size:          bag.Size,
+				SizeShared:    bag.SizeShared,
+				SizeExclusive: bag.SizeExclusive,
+				ItemList:      bag.ItemList,
 			})
 		}
 		return nil
@@ -327,14 +388,10 @@ func (d *dedup) Dedup(hashes []string) error {
 			// merged are at the top
 			for i := 1; i < len(list); i++ {
 				if !list[i].Merged {
-					//todo
-					// a := filepath.Join(d.rootPath, list[0].Path)
-					// b := filepath.Join(d.rootPath, list[i].Path)
-
 					a := list[0].Path
 					b := list[i].Path
 					d.logMsg(fmt.Sprintf("dedup %s %s", a, b))
-					if err := deduplicateFiles(a, b); err == nil {
+					if err := DeduplicateFiles(a, b); err == nil {
 						list[0].Merged = true
 						list[i].Merged = true
 					} else {
