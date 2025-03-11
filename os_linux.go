@@ -102,7 +102,8 @@ func GetFileExtents(filePath string) (FileExtentList, error) {
 }
 
 func ExtentsMatch(blocks1, blocks2 FileExtentList) bool {
-	if len(blocks1) != len(blocks2) {
+	// define that zero blocks can't match
+	if len(blocks1) == 0 || len(blocks1) != len(blocks2) {
 		return false
 	}
 	for i := range blocks1 {

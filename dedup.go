@@ -11,14 +11,18 @@ import (
 	bolt "go.etcd.io/bbolt"
 )
 
-type dedup struct {
+type Dedup struct {
 	rootPath  string
 	indexName string
 
-	LogChan chan *DedupEvent
+	LogQueue  chan *LogEvent
+	PerfQueue chan *PerfEvent
 
 	status ddStatus
 	conn   *bolt.DB
+
+	doAbort  bool
+	NumTotal int
 }
 
 type ddStatus struct {
@@ -46,10 +50,6 @@ type DedupItem struct {
 	Merged bool   `json:"done"`
 }
 
-type DedupEvent struct {
-	Message string
-}
-
 const (
 	dedupSuffix = "-dedup.db"
 )
@@ -58,18 +58,33 @@ var (
 	ddStatusBucketName = []byte("status")
 	ddStatusName       = []byte("1")
 	ddItemBucketName   = []byte("item")
+
+	errAborted = errors.New("aborted")
 )
 
-func (d *dedup) logMsg(message string) {
-	d.LogChan <- &DedupEvent{message}
+func (d *Dedup) Abort() {
+	d.doAbort = true
+}
+func (d *Dedup) DidAbort() bool {
+	return d.doAbort
 }
 
-func NewDedup(path string, indexName string) (*dedup, error) {
+func (d *Dedup) logMsg(message string) {
+	d.LogQueue <- &LogEvent{StatusInfo, message}
+}
+
+func (d *Dedup) perfMonFiles(numFiles int) {
+	d.NumTotal += numFiles
+	d.PerfQueue <- &PerfEvent{int64(numFiles), 0}
+}
+
+func NewDedup(path string, indexName string) (*Dedup, error) {
 	var err error
-	d := &dedup{
+	d := &Dedup{
 		rootPath:  path,
 		indexName: indexName,
-		LogChan:   make(chan *DedupEvent),
+		LogQueue:  make(chan *LogEvent),
+		PerfQueue: make(chan *PerfEvent, 100),
 	}
 	dedupFile := filepath.Join(path, d.indexName+dedupSuffix)
 
@@ -96,7 +111,7 @@ func NewDedup(path string, indexName string) (*dedup, error) {
 	return d, nil
 }
 
-func (d *dedup) Finish() error {
+func (d *Dedup) Finish() error {
 	if d.conn != nil {
 		if err := d.conn.Close(); err != nil {
 			return err
@@ -106,7 +121,7 @@ func (d *dedup) Finish() error {
 	return nil
 }
 
-func (d *dedup) nextGen(tx *bolt.Tx) (err error) {
+func (d *Dedup) nextGen(tx *bolt.Tx) (err error) {
 	if sb := tx.Bucket(ddStatusBucketName); sb != nil {
 		d.status.Gen += 1
 		if data, err := json.Marshal(&d.status); err == nil {
@@ -116,7 +131,7 @@ func (d *dedup) nextGen(tx *bolt.Tx) (err error) {
 	return
 }
 
-func (d *dedup) DetectDupes(minSize int64) (err error) {
+func (d *Dedup) DetectDupes(minSize int64, verbose bool) (err error) {
 
 	file, err := os.Open(getAtomFile(d.rootPath, d.indexName, ""))
 	if err != nil {
@@ -134,8 +149,13 @@ func (d *dedup) DetectDupes(minSize int64) (err error) {
 		return err
 	}
 
+	d.logMsg("collect matching hashes")
 	all := make(map[string]*ddBag)
 	for {
+		if d.doAbort {
+			return errAborted
+		}
+
 		t, err := decoder.Token()
 		if err != nil {
 			return err
@@ -189,6 +209,24 @@ func (d *dedup) DetectDupes(minSize int64) (err error) {
 		return errors.New("invalid json (end)")
 	}
 
+	d.logMsg("process legacy indexes")
+	// legacy index items
+	for hash, bag := range all {
+		if bag.Size == -1 {
+			for _, p := range bag.ItemList {
+				if s, err := os.Stat(filepath.Join(d.rootPath, p.Path)); err == nil {
+					bag.Size = s.Size()
+					break
+				}
+			}
+		}
+		if bag.Size < minSize {
+			delete(all, hash)
+		}
+	}
+
+	// now check resultset for exclusive/shared space
+	d.logMsg("collect matching files")
 	if err = d.conn.Update(func(tx *bolt.Tx) error {
 
 		if err := d.nextGen(tx); err != nil {
@@ -197,8 +235,13 @@ func (d *dedup) DetectDupes(minSize int64) (err error) {
 
 		b := tx.Bucket(ddItemBucketName)
 
-		for hash, item := range all {
-			if len(item.ItemList) <= 1 {
+		for hash, bag := range all {
+
+			if d.doAbort {
+				return errAborted
+			}
+
+			if len(bag.ItemList) <= 1 {
 				continue
 			}
 			bhash := []byte(hash)
@@ -229,33 +272,39 @@ func (d *dedup) DetectDupes(minSize int64) (err error) {
 				el FileExtentList
 			}
 
-			var all []match
-			for _, p := range item.ItemList {
+			var matches []match
+			d.perfMonFiles(len(bag.ItemList))
+			for _, p := range bag.ItemList {
 				if res, err := GetFileExtents(filepath.Join(d.rootPath, p.Path)); err == nil {
-					all = append(all, match{-1, res})
+					matches = append(matches, match{-1, res})
 				} else {
-					// todo err
-					fmt.Print(err.Error())
-					all = append(all, match{-1, nil})
+					if !os.IsNotExist(err) {
+						// todo err
+						d.logMsg(fmt.Sprintf("err %s", err.Error()))
+					}
+					matches = append(matches, match{-1, nil})
 				}
 			}
 
-			for i := range all {
-				if all[i].id != -1 {
+			// compare extents and set id for matching
+			// empty matches (from errors) will not match
+			for i := range matches {
+				if matches[i].id != -1 {
 					continue
 				}
-				all[i].id = i
-				for j := i + 1; j < len(all); j++ {
-					if all[j].id == -1 && ExtentsMatch(all[i].el, all[j].el) {
-						all[j].id = i
+				matches[i].id = i
+				for j := i + 1; j < len(matches); j++ {
+					if matches[j].id == -1 && ExtentsMatch(matches[i].el, matches[j].el) {
+						matches[j].id = i
 					}
 				}
 			}
 
-			maxId := 0
-			maxCount := 0
+			// count matches and get maxId
+			maxId := -1
+			maxCount := 1
 			count := map[int]int{}
-			for _, o := range all {
+			for _, o := range matches {
 				count[o.id] += 1
 			}
 			for id, c := range count {
@@ -265,20 +314,20 @@ func (d *dedup) DetectDupes(minSize int64) (err error) {
 				}
 			}
 
-			item.SizeShared = 0
-			item.SizeExclusive = 0
-			for i := range all {
-				merged := all[i].id == maxId
-				item.ItemList[i].Merged = merged
+			bag.SizeShared = 0
+			bag.SizeExclusive = 0
+			for i := range matches {
+				merged := matches[i].id == maxId
+				bag.ItemList[i].Merged = merged
 				if merged {
-					item.SizeShared += item.Size
-				} else if all[i].id == i {
-					item.SizeExclusive += item.Size
+					bag.SizeShared += bag.Size
+				} else if matches[i].id == i {
+					bag.SizeExclusive += bag.Size
 				}
 			}
 
-			item.Gen = d.status.Gen
-			if data, err := json.Marshal(item); err != nil {
+			bag.Gen = d.status.Gen
+			if data, err := json.Marshal(bag); err != nil {
 				return err
 			} else {
 				if err = b.Put(bhash, data); err != nil {
@@ -313,7 +362,7 @@ func (d *dedup) DetectDupes(minSize int64) (err error) {
 	return nil
 }
 
-func (d *dedup) Show() ([]*DedupBag, error) {
+func (d *Dedup) Show() ([]*DedupBag, error) {
 	var list []*DedupBag
 	if err := d.conn.View(func(tx *bolt.Tx) error {
 		b := tx.Bucket(ddItemBucketName)
@@ -348,7 +397,7 @@ func (d *dedup) Show() ([]*DedupBag, error) {
 	return list, nil
 }
 
-func (d *dedup) Dedup(hashes []string) error {
+func (d *Dedup) Dedup(hashes []string) error {
 
 	// todo
 	if err := os.Chdir(d.rootPath); err != nil {

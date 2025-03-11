@@ -122,6 +122,7 @@ type CLIDedup struct {
 
 type Main struct {
 	context    *chkbit.Context
+	dedup      *chkbit.Dedup
 	dmgList    []string
 	errList    []string
 	verbose    bool
@@ -395,55 +396,6 @@ func (m *Main) runCmd(cmd Command, cli CLI) int {
 	}
 
 	if len(m.dmgList) > 0 || len(m.errList) > 0 {
-		return 1
-	}
-	return 0
-}
-
-func (m *Main) runDedup(dd *CLIDedup, indexName string, root string) int {
-
-	d, err := chkbit.NewDedup(root, indexName)
-	if err != nil {
-		m.printError(err)
-		return 1
-	}
-	defer d.Finish()
-
-	resultCh := make(chan error, 1)
-	go func() {
-		var err error
-		switch dd.Mode {
-		case "detect":
-			err = d.DetectDupes(dd.MinSize)
-		case "show":
-			if list, err := d.Show(); err == nil {
-				for i, bag := range list {
-					fmt.Printf("#%d %s [%s, shared=%s, exclusive=%s]\n",
-						i, bag.Hash, util.FormatSize(bag.Size),
-						util.FormatSize(bag.SizeShared), util.FormatSize(bag.SizeExclusive))
-					for _, item := range bag.ItemList {
-						c := "-"
-						if item.Merged {
-							c = "+"
-						}
-						fmt.Println(c, item.Path)
-					}
-				}
-			}
-			// todo show json
-		case "go":
-			err = d.Dedup(dd.Hashes)
-		}
-		resultCh <- err
-		close(d.LogChan)
-	}()
-
-	for l := range d.LogChan {
-		fmt.Println(l.Message)
-	}
-
-	if err = <-resultCh; err != nil {
-		m.printError(err)
 		return 1
 	}
 	return 0
