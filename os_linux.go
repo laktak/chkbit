@@ -39,6 +39,19 @@ type fiemapExtent struct {
 
 type FileExtentList []fiemapExtent
 
+func (fe *fiemapExtent) matches(o *fiemapExtent) bool {
+	return fe.Logical == o.Logical && fe.Physical == o.Physical && fe.Length == o.Length
+}
+
+func (fe FileExtentList) find(offs uint64) *fiemapExtent {
+	for _, o := range fe {
+		if o.Logical == offs {
+			return &o
+		}
+	}
+	return nil
+}
+
 func ioctlFileMap(file *os.File, start uint64, length uint64) ([]fiemapExtent, bool, error) {
 
 	extentCount := uint32(50)
@@ -73,10 +86,15 @@ func GetFileExtents(filePath string) (FileExtentList, error) {
 		return nil, err
 	}
 	defer file.Close()
+	fe, _, err := getFileExtentsFp(file)
+	return fe, err
+}
+
+func getFileExtentsFp(file *os.File) (FileExtentList, os.FileInfo, error) {
 
 	fileInfo, err := file.Stat()
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	var all []fiemapExtent
@@ -85,16 +103,16 @@ func GetFileExtents(filePath string) (FileExtentList, error) {
 	for {
 		part, done, err := ioctlFileMap(file, start, size-start)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 
 		all = append(all, part...)
 		if done {
-			return all, nil
+			return all, fileInfo, nil
 		}
 
 		if len(part) == 0 {
-			return nil, errors.ErrUnsupported
+			return nil, fileInfo, errors.ErrUnsupported
 		}
 		last := part[len(part)-1]
 		start = last.Logical + last.Length
@@ -109,12 +127,20 @@ func ExtentsMatch(blocks1, blocks2 FileExtentList) bool {
 	for i := range blocks1 {
 		a := blocks1[i]
 		b := blocks2[i]
-		if a.Physical != b.Physical || a.Length != b.Length {
+		if !a.matches(&b) {
 			return false
 		}
 	}
 
 	return true
+}
+
+func ShowExtents(blocks FileExtentList) string {
+	res := ""
+	for _, b := range blocks {
+		res += fmt.Sprintf("offs=%x len=%x ph=%x flags=%x\n", b.Logical, b.Length, b.Physical, b.Flags)
+	}
+	return res
 }
 
 // https://www.man7.org/linux/man-pages/man2/ioctl_fideduperange.2.html
@@ -133,40 +159,72 @@ func DeduplicateFiles(file1, file2 string) error {
 	}
 	defer f2.Close()
 
-	fileInfo1, err := f1.Stat()
+	el1, fileInfo1, err := getFileExtentsFp(f1)
 	if err != nil {
-		return fmt.Errorf("failed to get file info for %s: %v", file1, err)
-	}
-	size := fileInfo1.Size()
-
-	dedupe := unix.FileDedupeRange{
-		Src_offset: uint64(0),
-		Src_length: uint64(size),
-		Info: []unix.FileDedupeRangeInfo{
-			unix.FileDedupeRangeInfo{
-				Dest_fd:     int64(f2.Fd()),
-				Dest_offset: uint64(0),
-			},
-		}}
-
-	if err = unix.IoctlFileDedupeRange(int(f1.Fd()), &dedupe); err != nil {
-		return fmt.Errorf("deduplication failed: %s", err)
+		return fmt.Errorf("failed to get fileextents for %s: %v", file1, err)
 	}
 
-	if dedupe.Info[0].Status < 0 {
-		errno := unix.Errno(-dedupe.Info[0].Status)
-		if errno == unix.EOPNOTSUPP {
-			return errors.New("deduplication not supported on this filesystem")
-		} else if errno == unix.EINVAL {
-			return errors.New("deduplication status failed: EINVAL;")
+	size := uint64(fileInfo1.Size())
+	var offs uint64 = 0
+	for {
+		if offs >= size {
+			break
 		}
-		return fmt.Errorf("deduplication status failed: %s", unix.ErrnoName(errno))
-	} else if dedupe.Info[0].Status == unix.FILE_DEDUPE_RANGE_DIFFERS {
-		return fmt.Errorf("deduplication unexpected different range")
-	}
-	if dedupe.Info[0].Bytes_deduped != uint64(size) {
-		return fmt.Errorf("deduplication unexpected amount of bytes deduped %v != %v",
-			dedupe.Info[0].Bytes_deduped, size)
+
+		el2, _, err := getFileExtentsFp(f2)
+		if err != nil {
+			return fmt.Errorf("failed to get fileextents for %s: %v", file2, err)
+		}
+
+		dlen := size - offs
+		e1 := el1.find(offs)
+		e2 := el2.find(offs)
+		if e1 != nil {
+			dlen = e1.Length
+			if e2 != nil {
+				if e1.matches(e2) {
+					offs += e1.Length
+					continue
+				} else if e2.Length < e1.Length {
+					dlen = e2.Length
+				}
+			}
+		}
+
+		dedupe := unix.FileDedupeRange{
+			Src_offset: offs,
+			Src_length: dlen,
+			Info: []unix.FileDedupeRangeInfo{
+				unix.FileDedupeRangeInfo{
+					Dest_fd:     int64(f2.Fd()),
+					Dest_offset: offs,
+				},
+			}}
+
+		if err = unix.IoctlFileDedupeRange(int(f1.Fd()), &dedupe); err != nil {
+			return fmt.Errorf("deduplication failed (offs=%x, len=%x): %s", offs, dlen, err)
+		}
+
+		if dedupe.Info[0].Status < 0 {
+			errno := unix.Errno(-dedupe.Info[0].Status)
+			if errno == unix.EOPNOTSUPP {
+				return errors.New("deduplication not supported on this filesystem")
+			} else if errno == unix.EINVAL {
+				return errors.New("deduplication status failed: EINVAL;")
+			}
+			return fmt.Errorf("deduplication status failed: %s", unix.ErrnoName(errno))
+		} else if dedupe.Info[0].Status == unix.FILE_DEDUPE_RANGE_DIFFERS {
+			return fmt.Errorf("deduplication unexpected different range (offs=%x, len=%x)", offs, dlen)
+		}
+		done := dedupe.Info[0].Bytes_deduped
+		if offs+done == size {
+			break
+		} else if offs+done < size {
+			// continue
+			offs += done
+		} else {
+			return fmt.Errorf("deduplication unexpected amount of bytes deduped (offs=%x, len=%x)", offs, dlen)
+		}
 	}
 
 	return nil

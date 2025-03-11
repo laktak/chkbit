@@ -19,3 +19,7 @@ func GetFileExtents(_ string) (FileExtentList, error) {
 func ExtentsMatch(_, _ FileExtentList) bool {
 	return false
 }
+
+func ShowExtents(blocks FileExtentList) string {
+	return ""
+}

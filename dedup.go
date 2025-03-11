@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"slices"
 
+	"github.com/laktak/chkbit/v6/intutil"
 	bolt "go.etcd.io/bbolt"
 )
 
@@ -16,7 +17,7 @@ type Dedup struct {
 	indexName string
 
 	LogQueue  chan *LogEvent
-	PerfQueue chan *PerfEvent
+	PerfQueue chan *DedupPerfEvent
 
 	status ddStatus
 	conn   *bolt.DB
@@ -69,13 +70,21 @@ func (d *Dedup) DidAbort() bool {
 	return d.doAbort
 }
 
-func (d *Dedup) logMsg(message string) {
-	d.LogQueue <- &LogEvent{StatusInfo, message}
+func (d *Dedup) log(stat Status, message string) {
+	d.LogQueue <- &LogEvent{stat, message}
 }
 
-func (d *Dedup) perfMonFiles(numFiles int) {
+func (d *Dedup) logMsg(message string) {
+	d.log(StatusInfo, message)
+}
+
+func (d *Dedup) perfMonFiles(numFiles, i, l int) {
 	d.NumTotal += numFiles
-	d.PerfQueue <- &PerfEvent{int64(numFiles), 0}
+	pc := 0.0
+	if l > 0 {
+		pc = float64(i) / float64(l)
+	}
+	d.PerfQueue <- &DedupPerfEvent{int64(numFiles), pc}
 }
 
 func NewDedup(path string, indexName string) (*Dedup, error) {
@@ -84,7 +93,7 @@ func NewDedup(path string, indexName string) (*Dedup, error) {
 		rootPath:  path,
 		indexName: indexName,
 		LogQueue:  make(chan *LogEvent),
-		PerfQueue: make(chan *PerfEvent, 100),
+		PerfQueue: make(chan *DedupPerfEvent, 100),
 	}
 	dedupFile := filepath.Join(path, d.indexName+dedupSuffix)
 
@@ -209,8 +218,8 @@ func (d *Dedup) DetectDupes(minSize int64, verbose bool) (err error) {
 		return errors.New("invalid json (end)")
 	}
 
-	d.logMsg("process legacy indexes")
-	// legacy index items
+	// legacy index items don't contain a file size
+	d.logMsg("update file sizes (for legacy indexes)")
 	for hash, bag := range all {
 		if bag.Size == -1 {
 			for _, p := range bag.ItemList {
@@ -225,6 +234,8 @@ func (d *Dedup) DetectDupes(minSize int64, verbose bool) (err error) {
 		}
 	}
 
+	markDelete := [][]byte{}
+
 	// now check resultset for exclusive/shared space
 	d.logMsg("collect matching files")
 	if err = d.conn.Update(func(tx *bolt.Tx) error {
@@ -234,8 +245,10 @@ func (d *Dedup) DetectDupes(minSize int64, verbose bool) (err error) {
 		}
 
 		b := tx.Bucket(ddItemBucketName)
-
+		i := 0
+		d.perfMonFiles(0, 0, len(all))
 		for hash, bag := range all {
+			i += 1
 
 			if d.doAbort {
 				return errAborted
@@ -268,26 +281,25 @@ func (d *Dedup) DetectDupes(minSize int64, verbose bool) (err error) {
 			*/
 
 			type match struct {
-				id int
-				el FileExtentList
+				id   int
+				el   FileExtentList
+				item *DedupItem
 			}
 
 			var matches []match
-			d.perfMonFiles(len(bag.ItemList))
-			for _, p := range bag.ItemList {
-				if res, err := GetFileExtents(filepath.Join(d.rootPath, p.Path)); err == nil {
-					matches = append(matches, match{-1, res})
+			d.perfMonFiles(len(bag.ItemList), i, len(all))
+			for _, item := range bag.ItemList {
+				if res, err := GetFileExtents(filepath.Join(d.rootPath, item.Path)); err == nil {
+					matches = append(matches, match{-1, res, item})
 				} else {
 					if !os.IsNotExist(err) {
 						// todo err
-						d.logMsg(fmt.Sprintf("err %s", err.Error()))
+						d.log(StatusPanic, err.Error())
 					}
-					matches = append(matches, match{-1, nil})
 				}
 			}
 
 			// compare extents and set id for matching
-			// empty matches (from errors) will not match
 			for i := range matches {
 				if matches[i].id != -1 {
 					continue
@@ -316,14 +328,23 @@ func (d *Dedup) DetectDupes(minSize int64, verbose bool) (err error) {
 
 			bag.SizeShared = 0
 			bag.SizeExclusive = 0
+			bag.ItemList = []*DedupItem{}
 			for i := range matches {
 				merged := matches[i].id == maxId
-				bag.ItemList[i].Merged = merged
+
+				matches[i].item.Merged = merged
+				bag.ItemList = append(bag.ItemList, matches[i].item)
 				if merged {
 					bag.SizeShared += bag.Size
 				} else if matches[i].id == i {
 					bag.SizeExclusive += bag.Size
 				}
+			}
+
+			if len(bag.ItemList) < 2 {
+				// remove because of missing files
+				markDelete = append(markDelete, bhash)
+				continue
 			}
 
 			bag.Gen = d.status.Gen
@@ -338,17 +359,16 @@ func (d *Dedup) DetectDupes(minSize int64, verbose bool) (err error) {
 
 		// remove old gen (don't use c.Delete())
 		c := b.Cursor()
-		del := [][]byte{}
 		for k, v := c.First(); k != nil; k, v = c.Next() {
 			var bag ddBag
 			if err := json.Unmarshal(v, &bag); err != nil {
 				return err
 			}
 			if bag.Gen != d.status.Gen {
-				del = append(del, k)
+				markDelete = append(markDelete, k)
 			}
 		}
-		for _, k := range del {
+		for _, k := range markDelete {
 			if err := b.Delete(k); err != nil {
 				return err
 			}
@@ -399,11 +419,6 @@ func (d *Dedup) Show() ([]*DedupBag, error) {
 
 func (d *Dedup) Dedup(hashes []string) error {
 
-	// todo
-	if err := os.Chdir(d.rootPath); err != nil {
-		return err
-	}
-
 	if len(hashes) == 0 {
 		if bags, err := d.Show(); err == nil {
 			for _, o := range bags {
@@ -416,8 +431,16 @@ func (d *Dedup) Dedup(hashes []string) error {
 
 	if err := d.conn.Update(func(tx *bolt.Tx) error {
 		b := tx.Bucket(ddItemBucketName)
+		c := 0
+		d.perfMonFiles(0, 0, len(hashes))
 
 		for _, hash := range hashes {
+			c += 1
+
+			if d.doAbort {
+				return errAborted
+			}
+
 			var bag ddBag
 			bhash := []byte(hash)
 			v := b.Get(bhash)
@@ -436,19 +459,23 @@ func (d *Dedup) Dedup(hashes []string) error {
 			})
 			// merged are at the top
 			for i := 1; i < len(list); i++ {
+				if d.doAbort {
+					return errAborted
+				}
+
 				if !list[i].Merged {
-					a := list[0].Path
-					b := list[i].Path
-					d.logMsg(fmt.Sprintf("dedup %s %s", a, b))
+					a := filepath.Join(d.rootPath, list[0].Path)
+					b := filepath.Join(d.rootPath, list[i].Path)
+					d.logMsg(fmt.Sprintf("dedup %s %s \"%s\" -- \"%s\"", hash, intutil.FormatSize(bag.Size), a, b))
 					if err := DeduplicateFiles(a, b); err == nil {
 						list[0].Merged = true
 						list[i].Merged = true
 					} else {
-						d.logMsg(fmt.Sprintf("fail %s", err))
-						// log fail
+						d.log(StatusPanic, err.Error())
 					}
 				}
 			}
+			d.perfMonFiles(1, c, len(hashes))
 
 			if data, err := json.Marshal(&bag); err == nil {
 				if err := b.Put(bhash, data); err != nil {

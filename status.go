@@ -39,3 +39,8 @@ type PerfEvent struct {
 	NumFiles int64
 	NumBytes int64
 }
+
+type DedupPerfEvent struct {
+	NumFiles int64
+	Percent  float64
+}

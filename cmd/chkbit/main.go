@@ -73,7 +73,7 @@ type CLI struct {
 		Path string `arg:"" help:"directory for the index"`
 	} `cmd:"" help:"merge all indexes (split&atom) under this path into an atom index"`
 
-	Dedup CLIDedup `cmd:"" help:"todo"`
+	Dedup CLIDedup `cmd:"" help:"Deduplication commands"`
 
 	Util struct {
 		Fileblocks struct {
@@ -114,10 +114,10 @@ type CLI struct {
 }
 
 type CLIDedup struct {
-	Mode    string   `arg:"" enum:"show,detect,go" help:"todo"`
+	Mode    string   `arg:"" enum:"detect,show,go" help:"detect|show|go: detect duplicates, show results or deduplicate"`
 	Path    string   `arg:"" help:"directory for the index"`
-	Hashes  []string `arg:"" optional:"" name:"hashes" help:"hashes to select"`
-	MinSize int64    `default:8192 help:"minimum file size"`
+	Hashes  []string `arg:"" optional:"" name:"hashes" help:"hashes to select for go mode"`
+	MinSize int64    `default:8192 help:"minimum file size for detect"`
 }
 
 type Main struct {
@@ -505,6 +505,7 @@ func (m *Main) run() int {
 			fmt.Println("error: supply two or more paths")
 			return 1
 		}
+		allMatch := true
 		var first chkbit.FileExtentList
 		for i, path := range paths {
 			blocks, err := chkbit.GetFileExtents(path)
@@ -517,11 +518,17 @@ func (m *Main) run() int {
 			} else {
 				if !chkbit.ExtentsMatch(first, blocks) {
 					m.printErr(fmt.Sprintf("Files do not occupie the same blocks (%s, %s).", paths[0], path))
-					return 1
+					allMatch = false
 				}
 			}
+			if m.verbose {
+				fmt.Println(path)
+				fmt.Print(chkbit.ShowExtents(blocks))
+			}
 		}
-		fmt.Println("Files occupie the same blocks.")
+		if allMatch {
+			fmt.Println("Files occupie the same blocks.")
+		}
 		return 0
 
 	case "util filededup <paths>":
