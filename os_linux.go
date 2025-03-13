@@ -138,7 +138,7 @@ func ExtentsMatch(blocks1, blocks2 FileExtentList) bool {
 func ShowExtents(blocks FileExtentList) string {
 	res := ""
 	for _, b := range blocks {
-		res += fmt.Sprintf("offs=%x len=%x ph=%x flags=%x\n", b.Logical, b.Length, b.Physical, b.Flags)
+		res += fmt.Sprintf("offs=%x len=%x phys=%x flags=%x\n", b.Logical, b.Length, b.Physical, b.Flags)
 	}
 	return res
 }

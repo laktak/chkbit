@@ -92,7 +92,7 @@ func NewDedup(path string, indexName string) (*Dedup, error) {
 	d := &Dedup{
 		rootPath:  path,
 		indexName: indexName,
-		LogQueue:  make(chan *LogEvent),
+		LogQueue:  make(chan *LogEvent, 100),
 		PerfQueue: make(chan *DedupPerfEvent, 100),
 	}
 	dedupFile := filepath.Join(path, d.indexName+dedupSuffix)
@@ -130,14 +130,16 @@ func (d *Dedup) Finish() error {
 	return nil
 }
 
-func (d *Dedup) nextGen(tx *bolt.Tx) (err error) {
+func (d *Dedup) nextGen(tx *bolt.Tx) error {
 	if sb := tx.Bucket(ddStatusBucketName); sb != nil {
 		d.status.Gen += 1
 		if data, err := json.Marshal(&d.status); err == nil {
-			err = sb.Put(ddStatusName, data)
+			return sb.Put(ddStatusName, data)
+		} else {
+			return err
 		}
 	}
-	return
+	return errors.New("missing bucket")
 }
 
 func (d *Dedup) DetectDupes(minSize int64, verbose bool) (err error) {
@@ -158,7 +160,7 @@ func (d *Dedup) DetectDupes(minSize int64, verbose bool) (err error) {
 		return err
 	}
 
-	d.logMsg("collect matching hashes")
+	d.logMsg(fmt.Sprintf("collect matching hashes (min=%s)", intutil.FormatSize(minSize)))
 	all := make(map[string]*ddBag)
 	for {
 		if d.doAbort {
@@ -260,6 +262,7 @@ func (d *Dedup) DetectDupes(minSize int64, verbose bool) (err error) {
 			bhash := []byte(hash)
 
 			// combine with old status
+			// todo, ignore for now
 			/*
 				prevData := b.Get(bhash)
 				if prevData != nil {
@@ -273,10 +276,7 @@ func (d *Dedup) DetectDupes(minSize int64, verbose bool) (err error) {
 								}
 							}
 						}
-					} else {
-						// todo
-						return err
-					}
+					} // else ignore
 				}
 			*/
 
@@ -292,8 +292,8 @@ func (d *Dedup) DetectDupes(minSize int64, verbose bool) (err error) {
 				if res, err := GetFileExtents(filepath.Join(d.rootPath, item.Path)); err == nil {
 					matches = append(matches, match{-1, res, item})
 				} else {
+					// file is ignored
 					if !os.IsNotExist(err) {
-						// todo err
 						d.log(StatusPanic, err.Error())
 					}
 				}

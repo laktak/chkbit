@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/signal"
@@ -25,7 +26,13 @@ func (m *Main) handleDedupProgress(showFps bool) {
 	for {
 		select {
 		case <-abortChan:
+			if m.dedup.DidAbort() {
+				m.printStderr("Immediate abort!")
+				os.Exit(1)
+			}
 			m.dedup.Abort()
+			m.dedup.LogQueue <- &chkbit.LogEvent{Stat: chkbit.StatusPanic,
+				Message: "Aborting after current operation (press again for immediate exit)"}
 		case item := <-m.dedup.LogQueue:
 			if item == nil {
 				if m.progress == Fancy {
@@ -92,24 +99,28 @@ func (m *Main) runDedup(dd *CLIDedup, indexName string, root string) int {
 		var err error
 		switch dd.Mode {
 		case "detect":
-			// todo fmt.Printf("collect matching hashes (minimum size %s)"
 			err = m.dedup.DetectDupes(dd.MinSize, m.verbose)
 		case "show":
 			if list, err := m.dedup.Show(); err == nil {
-				for i, bag := range list {
-					fmt.Printf("#%d %s [%s, shared=%s, exclusive=%s]\n",
-						i, bag.Hash, intutil.FormatSize(bag.Size),
-						intutil.FormatSize(bag.SizeShared), intutil.FormatSize(bag.SizeExclusive))
-					for _, item := range bag.ItemList {
-						c := "-"
-						if item.Merged {
-							c = "+"
+				if dd.Json {
+					if data, err := json.Marshal(&list); err == nil {
+						fmt.Println(string(data))
+					}
+				} else {
+					for i, bag := range list {
+						fmt.Printf("#%d %s [%s, shared=%s, exclusive=%s]\n",
+							i, bag.Hash, intutil.FormatSize(bag.Size),
+							intutil.FormatSize(bag.SizeShared), intutil.FormatSize(bag.SizeExclusive))
+						for _, item := range bag.ItemList {
+							c := "-"
+							if item.Merged {
+								c = "+"
+							}
+							fmt.Println(c, item.Path)
 						}
-						fmt.Println(c, item.Path)
 					}
 				}
 			}
-			// todo show json
 		case "go":
 			fmt.Printf("run dedup %s\n", dd.Hashes)
 			err = m.dedup.Dedup(dd.Hashes)

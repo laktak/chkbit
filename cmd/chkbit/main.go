@@ -64,7 +64,7 @@ type CLI struct {
 	} `cmd:"" help:"add and update modified files, also checking existing ones (see flags with -h)"`
 
 	Init struct {
-		Mode  string `arg:"" enum:"split,atom" help:"split|atom: split mode creates one index per directory while in atom mode a single index is created at the given path"`
+		Mode  string `arg:"" enum:"split,atom" help:"{split|atom} split mode creates one index per directory while in atom mode a single index is created at the given path"`
 		Path  string `arg:"" help:"directory for the index"`
 		Force bool   `help:"force init if a index already exists"`
 	} `cmd:"" help:"initialize a new index at the given path that manages the path and all its subfolders (see -h)"`
@@ -114,10 +114,11 @@ type CLI struct {
 }
 
 type CLIDedup struct {
-	Mode    string   `arg:"" enum:"detect,show,go" help:"detect|show|go: detect duplicates, show results or deduplicate"`
+	Mode    string   `arg:"" enum:"detect,show,go" help:"{detect|show|go} detect mode: use the atom index to detect duplicates; show mode: show detected duplicate results go mode: (linux/supported filesystem only) run deduplicate"`
 	Path    string   `arg:"" help:"directory for the index"`
-	Hashes  []string `arg:"" optional:"" name:"hashes" help:"hashes to select for go mode"`
-	MinSize int64    `default:8192 help:"minimum file size for detect"`
+	Hashes  []string `arg:"" optional:"" name:"hashes" help:"go mode: hashes to select"`
+	MinSize int64    `default:8192 help:"detect mode: minimum file size"`
+	Json    bool     `help:"show mode: output json" negatable:""`
 }
 
 type Main struct {
@@ -487,7 +488,9 @@ func (m *Main) run() int {
 		}
 		return 0
 	case "dedup <mode> <path>", "dedup <mode> <path> <hashes>":
-		m.logInfo("", "chkbit dedup "+cli.Dedup.Path)
+		if !cli.Dedup.Json || cli.Dedup.Mode != "show" {
+			m.logInfo("", "chkbit dedup "+cli.Dedup.Path)
+		}
 		st, root, err := chkbit.LocateIndex(cli.Dedup.Path, chkbit.IndexTypeAny, cli.IndexName)
 		if err != nil {
 			m.printError(err)
