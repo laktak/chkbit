@@ -145,6 +145,13 @@ func ShowExtents(blocks FileExtentList) string {
 
 // https://www.man7.org/linux/man-pages/man2/ioctl_fideduperange.2.html
 
+func umin(x, y uint64) uint64 {
+	if x < y {
+		return x
+	}
+	return y
+}
+
 func DeduplicateFiles(file1, file2 string) error {
 	f1, err := os.Open(file1)
 	if err != nil {
@@ -180,13 +187,13 @@ func DeduplicateFiles(file1, file2 string) error {
 		e1 := el1.find(offs)
 		e2 := el2.find(offs)
 		if e1 != nil {
-			dlen = e1.Length
+			dlen = umin(e1.Length, dlen)
 			if e2 != nil {
 				if e1.matches(e2) {
 					offs += e1.Length
 					continue
 				} else if e2.Length < e1.Length {
-					dlen = e2.Length
+					dlen = umin(e2.Length, dlen)
 				}
 			}
 		}

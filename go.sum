@@ -10,8 +10,8 @@ github.com/hexops/gotextdiff v1.0.3 h1:gitA9+qJrrTCsiCl7+kh75nPqQt1cx4ZkudSTLoUq
 github.com/hexops/gotextdiff v1.0.3/go.mod h1:pSWU5MAI3yDq+fZBTazCSJysOMbxWL1BSow5/V2vxeg=
 github.com/klauspost/cpuid/v2 v2.0.9 h1:lgaqFMSdTdQYdZ04uHyN2d/eKdOMyi2YLSvlQIBFYa4=
 github.com/klauspost/cpuid/v2 v2.0.9/go.mod h1:FInQzS24/EEf25PyTYn52gqo7WaD8xa0213Md/qVLRg=
-github.com/laktak/lterm v1.0.0 h1:hxRsBDHIWlMn+IV7C+6/tk4y81WqcO8F6G+52wSZUf4=
-github.com/laktak/lterm v1.0.0/go.mod h1:zwGyZi5PNuySqsDsRVNvBBYANy9k61oYgW6Flsm2AZg=
+github.com/laktak/lterm v1.1.0 h1:14irGudDwcgo/Hu8klxTQVybQL8No348Aw1vY+1Ld5w=
+github.com/laktak/lterm v1.1.0/go.mod h1:zwGyZi5PNuySqsDsRVNvBBYANy9k61oYgW6Flsm2AZg=
 github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
 github.com/stretchr/testify v1.8.1 h1:w7B6lhMri9wdJUVmEZPGGhZzrYTPvgJArz7wNPgYKsk=

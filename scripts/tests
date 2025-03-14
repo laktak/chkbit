@@ -1,5 +1,6 @@
 #!/bin/bash
 set -e
+export NO_COLOR=1
 
 script_dir=$(dirname "$(realpath "$0")")
 cd $script_dir/..

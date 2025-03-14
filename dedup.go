@@ -417,7 +417,7 @@ func (d *Dedup) Show() ([]*DedupBag, error) {
 	return list, nil
 }
 
-func (d *Dedup) Dedup(hashes []string) error {
+func (d *Dedup) Dedup(hashes []string, verbose bool) error {
 
 	if len(hashes) == 0 {
 		if bags, err := d.Show(); err == nil {
@@ -466,7 +466,11 @@ func (d *Dedup) Dedup(hashes []string) error {
 				if !list[i].Merged {
 					a := filepath.Join(d.rootPath, list[0].Path)
 					b := filepath.Join(d.rootPath, list[i].Path)
-					d.logMsg(fmt.Sprintf("dedup %s %s \"%s\" -- \"%s\"", hash, intutil.FormatSize(bag.Size), a, b))
+					if verbose {
+						d.logMsg(fmt.Sprintf("dedup %s %s \"%s\" -- \"%s\"", hash, intutil.FormatSize(bag.Size), a, b))
+					} else {
+						d.logMsg(fmt.Sprintf("dedup %s %s", intutil.FormatSize(bag.Size), a))
+					}
 					if err := DeduplicateFiles(a, b); err == nil {
 						list[0].Merged = true
 						list[i].Merged = true

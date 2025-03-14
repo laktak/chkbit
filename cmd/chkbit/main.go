@@ -26,17 +26,26 @@ const (
 	Fancy
 )
 
-type Command int
-
-const (
-	Check Command = iota
-	Update
-	ShowIgnored
-)
-
 const (
 	updateInterval       = time.Millisecond * 700
 	sizeMB         int64 = 1024 * 1024
+	abortTip             = "> you can abort by pressing control+c"
+)
+
+const (
+	cmdCheck          = "check <paths>"
+	cmdUpdate         = "update <paths>"
+	cmdShowIgnored    = "show-ignored <paths>"
+	cmdInit           = "init <mode> <path>"
+	cmdFuse           = "fuse <path>"
+	cmdDedupDetect    = "dedup detect <path>"
+	cmdDedupShow      = "dedup show <path>"
+	cmdDedupRun       = "dedup run <path>"
+	cmdDedupRun2      = "dedup run <path> <hashes>"
+	cmdUtilFileblocks = "util fileblocks <paths>"
+	cmdUtilFilededup  = "util filededup <paths>"
+	cmdTips           = "tips"
+	cmdVersion        = "version"
 )
 
 var appVersion = "vdev"
@@ -49,6 +58,7 @@ var (
 	termFG3     = lterm.Fg8(202)
 	termOKFG    = lterm.Fg4(2)
 	termAlertFG = lterm.Fg4(1)
+	termDimFG   = lterm.Fg8(240)
 )
 
 type CLI struct {
@@ -120,8 +130,9 @@ type CLIDedup struct {
 	} `cmd:"" help:"use the atom index to detect duplicates"`
 
 	Show struct {
-		Path string `arg:"" help:"directory for the index"`
-		Json bool   `help:"output json" negatable:""`
+		Path    string `arg:"" help:"directory for the index"`
+		Details bool   `help:"show file details" negatable:""`
+		Json    bool   `help:"output json" negatable:""`
 	} `cmd:"" help:"show detected duplicate"`
 
 	Run struct {
@@ -199,11 +210,13 @@ func (m *Main) logStatus(stat chkbit.Status, message string) bool {
 			return false
 		}
 
-		col := ""
+		col := lterm.Reset
+		col1 := termDimFG
 		if stat.IsErrorOrWarning() {
 			col = termAlertFG
+			col1 = col
 		}
-		lterm.Printline(col, stat.String(), " ", message, lterm.Reset)
+		lterm.Printline(col1, stat.String(), " ", col, message, lterm.Reset)
 		return true
 	}
 	return false
@@ -263,7 +276,7 @@ func (m *Main) handleProgress() {
 	}
 }
 
-func (m *Main) runCmd(cmd Command, cli CLI) int {
+func (m *Main) runCmd(command string, cli CLI) int {
 	var err error
 	m.context, err = chkbit.NewContext(cli.Workers, cli.Algo, cli.IndexName, cli.IgnoreName)
 	if err != nil {
@@ -272,19 +285,20 @@ func (m *Main) runCmd(cmd Command, cli CLI) int {
 	}
 
 	var pathList []string
-	switch cmd {
-	case Check:
+	switch command {
+	case cmdCheck:
 		pathList = cli.Check.Paths
 		m.log("chkbit check " + strings.Join(pathList, ", "))
 		m.hideNew = cli.Check.SkipNew
-	case Update:
+	case cmdUpdate:
 		pathList = cli.Update.Paths
 		m.context.UpdateIndex = true
 		m.context.UpdateSkipCheck = cli.Update.SkipExisting
 		m.context.ForceUpdateDmg = cli.Update.Force
 		m.log("chkbit update " + strings.Join(pathList, ", "))
-	case ShowIgnored:
+	case cmdShowIgnored:
 		pathList = cli.ShowIgnored.Paths
+		m.verbose = true
 		m.context.ShowIgnoredOnly = true
 		m.log("chkbit show-ignored " + strings.Join(pathList, ", "))
 	}
@@ -326,7 +340,7 @@ func (m *Main) runCmd(cmd Command, cli CLI) int {
 	m.context.Process(pathList)
 	wg.Wait()
 
-	if cmd == ShowIgnored {
+	if command == cmdShowIgnored {
 		return 0
 	}
 
@@ -462,14 +476,9 @@ func (m *Main) run() int {
 	}
 
 	switch ctx.Command() {
-	case "check <paths>":
-		return m.runCmd(Check, cli)
-	case "update <paths>":
-		return m.runCmd(Update, cli)
-	case "show-ignored <paths>":
-		m.verbose = true
-		return m.runCmd(ShowIgnored, cli)
-	case "init <mode> <path>":
+	case cmdCheck, cmdUpdate, cmdShowIgnored:
+		return m.runCmd(ctx.Command(), cli)
+	case cmdInit:
 		m.logInfo("", fmt.Sprintf("chkbit init %s %s", cli.Init.Mode, cli.Init.Path))
 		st := chkbit.IndexTypeSplit
 		if cli.Init.Mode == "atom" {
@@ -482,7 +491,7 @@ func (m *Main) run() int {
 			return 1
 		}
 		return 0
-	case "fuse <path>":
+	case cmdFuse:
 		m.logInfo("", fmt.Sprintf("chkbit fuse %s", cli.Fuse.Path))
 		log := func(text string) {
 			m.logInfo("", text)
@@ -494,10 +503,10 @@ func (m *Main) run() int {
 			return 1
 		}
 		return 0
-	case cmdDedupDetect, cmdDedupShow, cmdDedupRun:
+	case cmdDedupDetect, cmdDedupShow, cmdDedupRun, cmdDedupRun2:
 		return m.runDedup(ctx.Command(), &cli.Dedup, cli.IndexName)
 
-	case "util fileblocks <paths>":
+	case cmdUtilFileblocks:
 		paths := cli.Util.Fileblocks.Paths
 		if len(paths) < 2 {
 			fmt.Println("error: supply two or more paths")
@@ -529,7 +538,7 @@ func (m *Main) run() int {
 		}
 		return 0
 
-	case "util filededup <paths>":
+	case cmdUtilFilededup:
 		paths := cli.Util.Filededup.Paths
 		if len(paths) < 2 {
 			fmt.Println("error: supply two or more paths")
@@ -549,10 +558,10 @@ func (m *Main) run() int {
 		fmt.Println("Dedup success.")
 		return 0
 
-	case "tips":
+	case cmdTips:
 		fmt.Println(strings.ReplaceAll(helpTips, "<config-file>", configPath))
 		return 0
-	case "version":
+	case cmdVersion:
 		fmt.Println("github.com/laktak/chkbit")
 		fmt.Println(appVersion)
 		return 0

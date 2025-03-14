@@ -14,12 +14,6 @@ import (
 	"github.com/laktak/lterm"
 )
 
-const (
-	cmdDedupDetect = "dedup detect <path>"
-	cmdDedupShow   = "dedup show <path>"
-	cmdDedupRun    = "dedup run <path>"
-)
-
 func (m *Main) handleDedupProgress(showFps bool) {
 
 	abortChan := make(chan os.Signal, 1)
@@ -126,7 +120,6 @@ func (m *Main) runDedup(command string, dd *CLIDedup, indexName string) int {
 		var err error
 		switch command {
 		case cmdDedupDetect:
-			m.logInfo("", "chkbit dedup detect "+argPath)
 			err = m.dedup.DetectDupes(dd.Detect.MinSize, m.verbose)
 		case cmdDedupShow:
 			if list, err := m.dedup.Show(); err == nil {
@@ -150,15 +143,20 @@ func (m *Main) runDedup(command string, dd *CLIDedup, indexName string) int {
 					}
 				}
 			}
-		case cmdDedupRun:
-			m.logInfo("", fmt.Sprintf("chkbit dedup detect %s %s", argPath, dd.Run.Hashes))
-			err = m.dedup.Dedup(dd.Run.Hashes)
+		case cmdDedupRun, cmdDedupRun2:
+			err = m.dedup.Dedup(dd.Run.Hashes, m.verbose)
 		}
 		resultCh <- err
 		m.dedup.LogQueue <- nil
 	}()
 
-	if command == cmdDedupRun {
+	switch command {
+	case cmdDedupDetect:
+		m.logInfo("", "chkbit dedup detect "+argPath)
+		fmt.Println(abortTip)
+	case cmdDedupRun, cmdDedupRun2:
+		m.logInfo("", fmt.Sprintf("chkbit dedup detect %s %s", argPath, dd.Run.Hashes))
+		fmt.Println(abortTip)
 		showFps = false
 	}
 
