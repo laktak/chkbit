@@ -14,6 +14,7 @@ import (
 	"github.com/alecthomas/kong"
 	"github.com/laktak/chkbit/v6"
 	"github.com/laktak/chkbit/v6/cmd/chkbit/util"
+	"github.com/laktak/chkbit/v6/intutil"
 	"github.com/laktak/lterm"
 )
 
@@ -544,18 +545,21 @@ func (m *Main) run() int {
 			fmt.Println("error: supply two or more paths")
 			return 1
 		}
+		var reclaimedTotal uint64
 		var first string
 		for i, path := range paths {
 			if i == 0 {
 				first = path
 			} else {
-				if err = chkbit.DeduplicateFiles(first, path); err != nil {
+				if reclaimed, err := chkbit.DeduplicateFiles(first, path); err != nil {
 					m.printErr(fmt.Sprintf("Unable to deduplicate (%s, %s): %s", paths[0], path, err.Error()))
 					return 1
+				} else {
+					reclaimedTotal += reclaimed
 				}
 			}
 		}
-		fmt.Println("Dedup success.")
+		fmt.Printf("Dedup success, reclaimed %s.\n", intutil.FormatSize(reclaimedTotal))
 		return 0
 
 	case cmdTips:

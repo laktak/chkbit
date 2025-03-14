@@ -84,6 +84,47 @@ func (m *Main) handleDedupProgress(showFps bool) {
 	}
 }
 
+func (m *Main) showDedupStatus(list []*chkbit.DedupBag, showDetails bool) {
+
+	chash := uint64(0)
+	cfile := uint64(0)
+	minsize := uint64(0)
+	maxsize := uint64(0)
+	actsize := uint64(0)
+	for i, bag := range list {
+
+		bagLen := uint64(len(bag.ItemList))
+		chash += 1
+		cfile += bagLen
+		minsize += bag.Size
+		maxsize += bag.Size * bagLen
+		actsize += bag.SizeExclusive
+
+		if showDetails {
+			fmt.Printf("#%d %s [%s, shared=%s, exclusive=%s]\n",
+				i, bag.Hash, intutil.FormatSize(bag.Size),
+				intutil.FormatSize(bag.SizeShared), intutil.FormatSize(bag.SizeExclusive))
+			for _, item := range bag.ItemList {
+				c := "-"
+				if item.Merged {
+					c = "+"
+				}
+				fmt.Println(c, item.Path)
+			}
+		}
+	}
+
+	fmt.Println()
+	fmt.Printf("Detected %d hashes that are shared by %d files:\n", chash, cfile)
+	fmt.Printf("- Minimum required space: %s\n", intutil.FormatSize(minsize))
+	fmt.Printf("- Maximum required space: %s\n", intutil.FormatSize(maxsize))
+	fmt.Printf("- Actual used space:      %s\n", intutil.FormatSize(actsize))
+	fmt.Printf("- Reclaimable space:      %s\n", intutil.FormatSize(actsize-minsize))
+	if maxsize-minsize > 0 {
+		fmt.Printf("- Efficiency:             %.2f%%\n", (1-(float64(actsize-minsize)/float64(maxsize-minsize)))*100)
+	}
+}
+
 func (m *Main) runDedup(command string, dd *CLIDedup, indexName string) int {
 	var err error
 
@@ -116,67 +157,31 @@ func (m *Main) runDedup(command string, dd *CLIDedup, indexName string) int {
 
 	showFps := true
 	resultCh := make(chan error, 1)
-	go func() {
+	launchFunc := func() {
 		var err error
 		switch command {
 		case cmdDedupDetect:
 			err = m.dedup.DetectDupes(dd.Detect.MinSize, m.verbose)
-		case cmdDedupShow:
-			if list, err := m.dedup.Show(); err == nil {
-				if dd.Show.Json {
-					if data, err := json.Marshal(&list); err == nil {
-						fmt.Println(string(data))
-					}
-				} else {
-					m.logInfo("", "chkbit dedup show "+argPath)
-					chash := uint64(0)
-					cfile := uint64(0)
-					minsize := uint64(0)
-					maxsize := uint64(0)
-					actsize := uint64(0)
-					for i, bag := range list {
-
-						bagLen := uint64(len(bag.ItemList))
-						chash += 1
-						cfile += bagLen
-						minsize += bag.Size
-						maxsize += bag.Size * bagLen
-						actsize += bag.SizeExclusive
-
-						if dd.Show.Details {
-							fmt.Printf("#%d %s [%s, shared=%s, exclusive=%s]\n",
-								i, bag.Hash, intutil.FormatSize(bag.Size),
-								intutil.FormatSize(bag.SizeShared), intutil.FormatSize(bag.SizeExclusive))
-							for _, item := range bag.ItemList {
-								c := "-"
-								if item.Merged {
-									c = "+"
-								}
-								fmt.Println(c, item.Path)
-							}
-						}
-					}
-
-					fmt.Println()
-					fmt.Printf("Detected %d hashes that are shared by %d files:\n", chash, cfile)
-					fmt.Printf("- Minimum required space: %s\n", intutil.FormatSize(minsize))
-					fmt.Printf("- Maximum required space: %s\n", intutil.FormatSize(maxsize))
-					fmt.Printf("- Actual used space:      %s\n", intutil.FormatSize(actsize))
-					fmt.Printf("- Reclaimable space:      %s\n", intutil.FormatSize(actsize-minsize))
-					if maxsize-minsize > 0 {
-						fmt.Printf("- Efficiency:             %.2f%%\n", (1-(float64(actsize-minsize)/float64(maxsize-minsize)))*100)
-					}
-
-				}
-			}
 		case cmdDedupRun, cmdDedupRun2:
 			err = m.dedup.Dedup(dd.Run.Hashes, m.verbose)
 		}
 		resultCh <- err
 		m.dedup.LogQueue <- nil
-	}()
+	}
 
 	switch command {
+	case cmdDedupShow:
+		if list, err := m.dedup.Show(); err == nil {
+			if dd.Show.Json {
+				if data, err := json.Marshal(&list); err == nil {
+					fmt.Println(string(data))
+				}
+			} else {
+				m.logInfo("", "chkbit dedup show "+argPath)
+				m.showDedupStatus(list, dd.Show.Details)
+			}
+		}
+		return 0
 	case cmdDedupDetect:
 		m.logInfo("", "chkbit dedup detect "+argPath)
 		fmt.Println(abortTip)
@@ -186,18 +191,32 @@ func (m *Main) runDedup(command string, dd *CLIDedup, indexName string) int {
 		showFps = false
 	}
 
+	go launchFunc()
 	m.handleDedupProgress(showFps)
 
 	if err = <-resultCh; err != nil {
 		m.printError(err)
-		return 1
+		if !chkbit.IsAborted(err) {
+			return 1
+		}
 	}
 
 	if m.progress == Fancy && m.dedup.NumTotal > 0 {
 		elapsed := time.Since(m.fps.Start)
 		elapsedS := elapsed.Seconds()
 		m.logInfo("", fmt.Sprintf("- %s elapsed", elapsed.Truncate(time.Second)))
+		m.logInfo("", fmt.Sprintf("- %d file(s) processed", m.dedup.NumTotal))
 		m.logInfo("", fmt.Sprintf("- %.2f files/second", (float64(m.fps.Total)+float64(m.fps.Current))/elapsedS))
+		if m.dedup.ReclaimedTotal > 0 {
+			m.logInfo("", fmt.Sprintf("- %s bytes reclaimed", intutil.FormatSize(m.dedup.ReclaimedTotal)))
+		}
+	}
+
+	switch command {
+	case cmdDedupDetect:
+		if list, err := m.dedup.Show(); err == nil {
+			m.showDedupStatus(list, dd.Show.Details)
+		}
 	}
 
 	return 0

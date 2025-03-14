@@ -152,25 +152,26 @@ func umin(x, y uint64) uint64 {
 	return y
 }
 
-func DeduplicateFiles(file1, file2 string) error {
+func DeduplicateFiles(file1, file2 string) (uint64, error) {
 	f1, err := os.Open(file1)
 	if err != nil {
-		return fmt.Errorf("failed to open file %s: %v", file1, err)
+		return 0, fmt.Errorf("failed to open file %s: %v", file1, err)
 	}
 	defer f1.Close()
 
 	// dest must be open for writing
 	f2, err := os.OpenFile(file2, os.O_RDWR, 0)
 	if err != nil {
-		return fmt.Errorf("failed to open file %s: %v", file2, err)
+		return 0, fmt.Errorf("failed to open file %s: %v", file2, err)
 	}
 	defer f2.Close()
 
 	el1, fileInfo1, err := getFileExtentsFp(f1)
 	if err != nil {
-		return fmt.Errorf("failed to get fileextents for %s: %v", file1, err)
+		return 0, fmt.Errorf("failed to get fileextents for %s: %v", file1, err)
 	}
 
+	reclaimed := uint64(0)
 	size := uint64(fileInfo1.Size())
 	var offs uint64 = 0
 	for {
@@ -180,7 +181,7 @@ func DeduplicateFiles(file1, file2 string) error {
 
 		el2, _, err := getFileExtentsFp(f2)
 		if err != nil {
-			return fmt.Errorf("failed to get fileextents for %s: %v", file2, err)
+			return reclaimed, fmt.Errorf("failed to get fileextents for %s: %v", file2, err)
 		}
 
 		dlen := size - offs
@@ -209,30 +210,31 @@ func DeduplicateFiles(file1, file2 string) error {
 			}}
 
 		if err = unix.IoctlFileDedupeRange(int(f1.Fd()), &dedupe); err != nil {
-			return fmt.Errorf("deduplication failed (offs=%x, len=%x): %s", offs, dlen, err)
+			return reclaimed, fmt.Errorf("deduplication failed (offs=%x, len=%x): %s", offs, dlen, err)
 		}
 
 		if dedupe.Info[0].Status < 0 {
 			errno := unix.Errno(-dedupe.Info[0].Status)
 			if errno == unix.EOPNOTSUPP {
-				return errors.New("deduplication not supported on this filesystem")
+				return reclaimed, errors.New("deduplication not supported on this filesystem")
 			} else if errno == unix.EINVAL {
-				return errors.New("deduplication status failed: EINVAL;")
+				return reclaimed, errors.New("deduplication status failed: EINVAL;")
 			}
-			return fmt.Errorf("deduplication status failed: %s", unix.ErrnoName(errno))
+			return reclaimed, fmt.Errorf("deduplication status failed: %s", unix.ErrnoName(errno))
 		} else if dedupe.Info[0].Status == unix.FILE_DEDUPE_RANGE_DIFFERS {
-			return fmt.Errorf("deduplication unexpected different range (offs=%x, len=%x)", offs, dlen)
+			return reclaimed, fmt.Errorf("deduplication unexpected different range (offs=%x, len=%x)", offs, dlen)
 		}
 		done := dedupe.Info[0].Bytes_deduped
+		reclaimed += done
 		if offs+done == size {
 			break
 		} else if offs+done < size {
 			// continue
 			offs += done
 		} else {
-			return fmt.Errorf("deduplication unexpected amount of bytes deduped (offs=%x, len=%x)", offs, dlen)
+			return reclaimed, fmt.Errorf("deduplication unexpected amount of bytes deduped (offs=%x, len=%x)", offs, dlen)
 		}
 	}
 
-	return nil
+	return reclaimed, nil
 }

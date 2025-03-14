@@ -22,8 +22,9 @@ type Dedup struct {
 	status ddStatus
 	conn   *bolt.DB
 
-	doAbort  bool
-	NumTotal int
+	doAbort        bool
+	NumTotal       uint
+	ReclaimedTotal uint64
 }
 
 type ddStatus struct {
@@ -63,6 +64,10 @@ var (
 	errAborted = errors.New("aborted")
 )
 
+func IsAborted(err error) bool {
+	return err == errAborted
+}
+
 func (d *Dedup) Abort() {
 	d.doAbort = true
 }
@@ -79,7 +84,7 @@ func (d *Dedup) logMsg(message string) {
 }
 
 func (d *Dedup) perfMonFiles(numFiles, i, l int) {
-	d.NumTotal += numFiles
+	d.NumTotal += uint(numFiles)
 	pc := 0.0
 	if l > 0 {
 		pc = float64(i) / float64(l)
@@ -472,9 +477,10 @@ func (d *Dedup) Dedup(hashes []string, verbose bool) error {
 					} else {
 						d.logMsg(fmt.Sprintf("dedup %s %s", intutil.FormatSize(uint64(bag.Size)), a))
 					}
-					if err := DeduplicateFiles(a, b); err == nil {
+					if reclaimed, err := DeduplicateFiles(a, b); err == nil {
 						list[0].Merged = true
 						list[i].Merged = true
+						d.ReclaimedTotal += reclaimed
 					} else {
 						d.log(StatusPanic, err.Error())
 					}

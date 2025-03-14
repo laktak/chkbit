@@ -6,10 +6,6 @@ import (
 	"errors"
 )
 
-func DeduplicateFiles(_, _ string) error {
-	return errors.New("deduplicate is not supported on this OS")
-}
-
 type FileExtentList []int
 
 func GetFileExtents(_ string) (FileExtentList, error) {
@@ -22,4 +18,8 @@ func ExtentsMatch(_, _ FileExtentList) bool {
 
 func ShowExtents(blocks FileExtentList) string {
 	return ""
+}
+
+func DeduplicateFiles(_, _ string) (uint64, error) {
+	return 0, errors.New("deduplicate is not supported on this OS")
 }
