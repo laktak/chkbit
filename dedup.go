@@ -33,16 +33,16 @@ type ddStatus struct {
 type ddBag struct {
 	Gen           int          `json:"gen"`
 	Size          int64        `json:"size"`
-	SizeShared    int64        `json:"shared"`
-	SizeExclusive int64        `json:"exclusive"`
+	SizeShared    uint64       `json:"shared"`
+	SizeExclusive uint64       `json:"exclusive"`
 	ItemList      []*DedupItem `json:"item"`
 }
 
 type DedupBag struct {
 	Hash          string       `json:"hash"`
-	Size          int64        `json:"size"`
-	SizeShared    int64        `json:"shared"`
-	SizeExclusive int64        `json:"exclusive"`
+	Size          uint64       `json:"size"`
+	SizeShared    uint64       `json:"shared"`
+	SizeExclusive uint64       `json:"exclusive"`
 	ItemList      []*DedupItem `json:"item"`
 }
 
@@ -142,7 +142,7 @@ func (d *Dedup) nextGen(tx *bolt.Tx) error {
 	return errors.New("missing bucket")
 }
 
-func (d *Dedup) DetectDupes(minSize int64, verbose bool) (err error) {
+func (d *Dedup) DetectDupes(minSize uint64, verbose bool) (err error) {
 
 	file, err := os.Open(getAtomFile(d.rootPath, d.indexName, ""))
 	if err != nil {
@@ -195,7 +195,7 @@ func (d *Dedup) DetectDupes(minSize int64, verbose bool) (err error) {
 
 		for k, v := range index.fileList {
 
-			if v.Size != nil && *v.Size >= 0 && *v.Size < minSize {
+			if v.Size != nil && *v.Size >= 0 && uint64(*v.Size) < minSize {
 				continue
 			}
 
@@ -231,7 +231,7 @@ func (d *Dedup) DetectDupes(minSize int64, verbose bool) (err error) {
 				}
 			}
 		}
-		if bag.Size < minSize {
+		if bag.Size < int64(minSize) {
 			delete(all, hash)
 		}
 	}
@@ -335,9 +335,10 @@ func (d *Dedup) DetectDupes(minSize int64, verbose bool) (err error) {
 				matches[i].item.Merged = merged
 				bag.ItemList = append(bag.ItemList, matches[i].item)
 				if merged {
-					bag.SizeShared += bag.Size
-				} else if matches[i].id == i {
-					bag.SizeExclusive += bag.Size
+					bag.SizeShared += uint64(bag.Size)
+				}
+				if matches[i].id == i {
+					bag.SizeExclusive += uint64(bag.Size)
 				}
 			}
 
@@ -394,7 +395,7 @@ func (d *Dedup) Show() ([]*DedupBag, error) {
 			}
 			list = append(list, &DedupBag{
 				Hash:          string(k),
-				Size:          bag.Size,
+				Size:          uint64(bag.Size),
 				SizeShared:    bag.SizeShared,
 				SizeExclusive: bag.SizeExclusive,
 				ItemList:      bag.ItemList,
@@ -467,9 +468,9 @@ func (d *Dedup) Dedup(hashes []string, verbose bool) error {
 					a := filepath.Join(d.rootPath, list[0].Path)
 					b := filepath.Join(d.rootPath, list[i].Path)
 					if verbose {
-						d.logMsg(fmt.Sprintf("dedup %s %s \"%s\" -- \"%s\"", hash, intutil.FormatSize(bag.Size), a, b))
+						d.logMsg(fmt.Sprintf("dedup %s %s \"%s\" -- \"%s\"", hash, intutil.FormatSize(uint64(bag.Size)), a, b))
 					} else {
-						d.logMsg(fmt.Sprintf("dedup %s %s", intutil.FormatSize(bag.Size), a))
+						d.logMsg(fmt.Sprintf("dedup %s %s", intutil.FormatSize(uint64(bag.Size)), a))
 					}
 					if err := DeduplicateFiles(a, b); err == nil {
 						list[0].Merged = true

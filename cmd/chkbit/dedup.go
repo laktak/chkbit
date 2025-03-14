@@ -129,18 +129,44 @@ func (m *Main) runDedup(command string, dd *CLIDedup, indexName string) int {
 					}
 				} else {
 					m.logInfo("", "chkbit dedup show "+argPath)
+					chash := uint64(0)
+					cfile := uint64(0)
+					minsize := uint64(0)
+					maxsize := uint64(0)
+					actsize := uint64(0)
 					for i, bag := range list {
-						fmt.Printf("#%d %s [%s, shared=%s, exclusive=%s]\n",
-							i, bag.Hash, intutil.FormatSize(bag.Size),
-							intutil.FormatSize(bag.SizeShared), intutil.FormatSize(bag.SizeExclusive))
-						for _, item := range bag.ItemList {
-							c := "-"
-							if item.Merged {
-								c = "+"
+
+						bagLen := uint64(len(bag.ItemList))
+						chash += 1
+						cfile += bagLen
+						minsize += bag.Size
+						maxsize += bag.Size * bagLen
+						actsize += bag.SizeExclusive
+
+						if dd.Show.Details {
+							fmt.Printf("#%d %s [%s, shared=%s, exclusive=%s]\n",
+								i, bag.Hash, intutil.FormatSize(bag.Size),
+								intutil.FormatSize(bag.SizeShared), intutil.FormatSize(bag.SizeExclusive))
+							for _, item := range bag.ItemList {
+								c := "-"
+								if item.Merged {
+									c = "+"
+								}
+								fmt.Println(c, item.Path)
 							}
-							fmt.Println(c, item.Path)
 						}
 					}
+
+					fmt.Println()
+					fmt.Printf("Detected %d hashes that are shared by %d files:\n", chash, cfile)
+					fmt.Printf("- Minimum required space: %s\n", intutil.FormatSize(minsize))
+					fmt.Printf("- Maximum required space: %s\n", intutil.FormatSize(maxsize))
+					fmt.Printf("- Actual used space:      %s\n", intutil.FormatSize(actsize))
+					fmt.Printf("- Reclaimable space:      %s\n", intutil.FormatSize(actsize-minsize))
+					if maxsize-minsize > 0 {
+						fmt.Printf("- Efficiency:             %.2f%%\n", (1-(float64(actsize-minsize)/float64(maxsize-minsize)))*100)
+					}
+
 				}
 			}
 		case cmdDedupRun, cmdDedupRun2:

@@ -126,14 +126,14 @@ type CLI struct {
 type CLIDedup struct {
 	Detect struct {
 		Path    string `arg:"" help:"directory for the index"`
-		MinSize int64  `default:8192 help:"minimum file size"`
+		MinSize uint64 `default:8192 help:"minimum file size"`
 	} `cmd:"" help:"use the atom index to detect duplicates"`
 
 	Show struct {
 		Path    string `arg:"" help:"directory for the index"`
-		Details bool   `help:"show file details" negatable:""`
-		Json    bool   `help:"output json" negatable:""`
-	} `cmd:"" help:"show detected duplicate"`
+		Details bool   `short:"f" help:"show file details" negatable:""`
+		Json    bool   `short:"j" help:"output json" negatable:""`
+	} `cmd:"" help:"show detected duplicate status"`
 
 	Run struct {
 		Path   string   `arg:"" help:"directory for the index"`
