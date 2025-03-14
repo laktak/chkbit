@@ -114,11 +114,20 @@ type CLI struct {
 }
 
 type CLIDedup struct {
-	Mode    string   `arg:"" enum:"detect,show,go" help:"{detect|show|go} detect mode: use the atom index to detect duplicates; show mode: show detected duplicate results go mode: (linux/supported filesystem only) run deduplicate"`
-	Path    string   `arg:"" help:"directory for the index"`
-	Hashes  []string `arg:"" optional:"" name:"hashes" help:"go mode: hashes to select"`
-	MinSize int64    `default:8192 help:"detect mode: minimum file size"`
-	Json    bool     `help:"show mode: output json" negatable:""`
+	Detect struct {
+		Path    string `arg:"" help:"directory for the index"`
+		MinSize int64  `default:8192 help:"minimum file size"`
+	} `cmd:"" help:"use the atom index to detect duplicates"`
+
+	Show struct {
+		Path string `arg:"" help:"directory for the index"`
+		Json bool   `help:"output json" negatable:""`
+	} `cmd:"" help:"show detected duplicate"`
+
+	Run struct {
+		Path   string   `arg:"" help:"directory for the index"`
+		Hashes []string `arg:"" optional:"" name:"hashes" help:"hashes to select (all if not specified)"`
+	} `cmd:"" help:"run deduplication, make all duplicate files point to the same space; Linux with supported filesystem only"`
 }
 
 type Main struct {
@@ -416,20 +425,18 @@ func (m *Main) run() int {
 
 	var cli CLI
 	var ctx *kong.Context
-	ctx = kong.Parse(&cli,
+	kongOptions := []kong.Option{
 		kong.Name("chkbit"),
 		kong.Description(headerHelp),
+		kong.ConfigureHelp(kong.HelpOptions{Tree: true, FlagsLast: true}),
 		kong.UsageOnError(),
-		kong.Configuration(kong.JSON, configPath),
-	)
+	}
+
+	ctx = kong.Parse(&cli, append(kongOptions, kong.Configuration(kong.JSON, configPath))...)
 
 	if cli.NoConfig {
 		cli = CLI{}
-		ctx = kong.Parse(&cli,
-			kong.Name("chkbit"),
-			kong.Description(headerHelp),
-			kong.UsageOnError(),
-		)
+		ctx = kong.Parse(&cli, kongOptions...)
 	}
 
 	if cli.Quiet {
@@ -487,20 +494,8 @@ func (m *Main) run() int {
 			return 1
 		}
 		return 0
-	case "dedup <mode> <path>", "dedup <mode> <path> <hashes>":
-		if !cli.Dedup.Json || cli.Dedup.Mode != "show" {
-			m.logInfo("", "chkbit dedup "+cli.Dedup.Path)
-		}
-		st, root, err := chkbit.LocateIndex(cli.Dedup.Path, chkbit.IndexTypeAny, cli.IndexName)
-		if err != nil {
-			m.printError(err)
-			return 1
-		}
-		if st != chkbit.IndexTypeAtom {
-			fmt.Println("error: dedup is incompatible with split mode")
-			return 1
-		}
-		return m.runDedup(&cli.Dedup, cli.IndexName, root)
+	case cmdDedupDetect, cmdDedupShow, cmdDedupRun:
+		return m.runDedup(ctx.Command(), &cli.Dedup, cli.IndexName)
 
 	case "util fileblocks <paths>":
 		paths := cli.Util.Fileblocks.Paths

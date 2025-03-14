@@ -14,6 +14,12 @@ import (
 	"github.com/laktak/lterm"
 )
 
+const (
+	cmdDedupDetect = "dedup detect <path>"
+	cmdDedupShow   = "dedup show <path>"
+	cmdDedupRun    = "dedup run <path>"
+)
+
 func (m *Main) handleDedupProgress(showFps bool) {
 
 	abortChan := make(chan os.Signal, 1)
@@ -84,8 +90,29 @@ func (m *Main) handleDedupProgress(showFps bool) {
 	}
 }
 
-func (m *Main) runDedup(dd *CLIDedup, indexName string, root string) int {
+func (m *Main) runDedup(command string, dd *CLIDedup, indexName string) int {
 	var err error
+
+	var argPath string
+	switch command {
+	case cmdDedupDetect:
+		argPath = dd.Detect.Path
+	case cmdDedupShow:
+		argPath = dd.Show.Path
+	case cmdDedupRun:
+		argPath = dd.Run.Path
+	}
+
+	st, root, err := chkbit.LocateIndex(argPath, chkbit.IndexTypeAny, indexName)
+	if err != nil {
+		m.printError(err)
+		return 1
+	}
+	if st != chkbit.IndexTypeAtom {
+		fmt.Println("error: dedup is incompatible with split mode")
+		return 1
+	}
+
 	m.dedup, err = chkbit.NewDedup(root, indexName)
 	if err != nil {
 		m.printError(err)
@@ -97,16 +124,18 @@ func (m *Main) runDedup(dd *CLIDedup, indexName string, root string) int {
 	resultCh := make(chan error, 1)
 	go func() {
 		var err error
-		switch dd.Mode {
-		case "detect":
-			err = m.dedup.DetectDupes(dd.MinSize, m.verbose)
-		case "show":
+		switch command {
+		case cmdDedupDetect:
+			m.logInfo("", "chkbit dedup detect "+argPath)
+			err = m.dedup.DetectDupes(dd.Detect.MinSize, m.verbose)
+		case cmdDedupShow:
 			if list, err := m.dedup.Show(); err == nil {
-				if dd.Json {
+				if dd.Show.Json {
 					if data, err := json.Marshal(&list); err == nil {
 						fmt.Println(string(data))
 					}
 				} else {
+					m.logInfo("", "chkbit dedup show "+argPath)
 					for i, bag := range list {
 						fmt.Printf("#%d %s [%s, shared=%s, exclusive=%s]\n",
 							i, bag.Hash, intutil.FormatSize(bag.Size),
@@ -121,15 +150,15 @@ func (m *Main) runDedup(dd *CLIDedup, indexName string, root string) int {
 					}
 				}
 			}
-		case "go":
-			fmt.Printf("run dedup %s\n", dd.Hashes)
-			err = m.dedup.Dedup(dd.Hashes)
+		case cmdDedupRun:
+			m.logInfo("", fmt.Sprintf("chkbit dedup detect %s %s", argPath, dd.Run.Hashes))
+			err = m.dedup.Dedup(dd.Run.Hashes)
 		}
 		resultCh <- err
 		m.dedup.LogQueue <- nil
 	}()
 
-	if dd.Mode == "go" {
+	if command == cmdDedupRun {
 		showFps = false
 	}
 
