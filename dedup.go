@@ -411,7 +411,7 @@ func (d *Dedup) Show() ([]*DedupBag, error) {
 		return nil, err
 	}
 	slices.SortFunc(list, func(a, b *DedupBag) int {
-		r := b.Size - a.Size
+		r := int64(b.Size) - int64(a.Size)
 		if r < 0 {
 			return -1
 		} else if r > 0 {

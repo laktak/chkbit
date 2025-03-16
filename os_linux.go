@@ -54,6 +54,10 @@ func (fe FileExtentList) find(offs uint64) *fiemapExtent {
 
 func ioctlFileMap(file *os.File, start uint64, length uint64) ([]fiemapExtent, bool, error) {
 
+	if length == 0 {
+		return nil, true, nil
+	}
+
 	extentCount := uint32(50)
 	buf := make([]byte, sizeOfFiemap+extentCount*sizeOfExtent)
 	fm := (*fiemap)(unsafe.Pointer(&buf[0]))
@@ -68,8 +72,14 @@ func ioctlFileMap(file *os.File, start uint64, length uint64) ([]fiemapExtent, b
 
 	extents := make([]fiemapExtent, fm.mappedExtents)
 	done := fm.mappedExtents == 0
+	lastOffs := start
 	for i := range fm.mappedExtents {
 		rawinfo := (*fiemapExtent)(unsafe.Pointer(uintptr(unsafe.Pointer(&buf[0])) + uintptr(sizeOfFiemap) + uintptr(i*sizeOfExtent)))
+		if rawinfo.Logical < lastOffs {
+			// return nil, true, errors.New("invalid order")
+			return nil, true, fmt.Errorf("invalid order %v", rawinfo.Logical)
+		}
+		lastOffs = rawinfo.Logical
 		extents[i].Logical = rawinfo.Logical
 		extents[i].Physical = rawinfo.Physical
 		extents[i].Length = rawinfo.Length
@@ -78,16 +88,6 @@ func ioctlFileMap(file *os.File, start uint64, length uint64) ([]fiemapExtent, b
 	}
 
 	return extents, done, nil
-}
-
-func GetFileExtents(filePath string) (FileExtentList, error) {
-	file, err := os.Open(filePath)
-	if err != nil {
-		return nil, err
-	}
-	defer file.Close()
-	fe, _, err := getFileExtentsFp(file)
-	return fe, err
 }
 
 func getFileExtentsFp(file *os.File) (FileExtentList, os.FileInfo, error) {
@@ -119,14 +119,28 @@ func getFileExtentsFp(file *os.File) (FileExtentList, os.FileInfo, error) {
 	}
 }
 
-func ExtentsMatch(blocks1, blocks2 FileExtentList) bool {
+func GetFileExtents(filePath string) (FileExtentList, error) {
+	file, err := os.Open(filePath)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+	fe, _, err := getFileExtentsFp(file)
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to get fileextents for %s: %v", filePath, err)
+	}
+	return fe, err
+}
+
+func ExtentsMatch(extList1, extList2 FileExtentList) bool {
 	// define that zero blocks can't match
-	if len(blocks1) == 0 || len(blocks1) != len(blocks2) {
+	if len(extList1) == 0 || len(extList1) != len(extList2) {
 		return false
 	}
-	for i := range blocks1 {
-		a := blocks1[i]
-		b := blocks2[i]
+	for i := range extList1 {
+		a := extList1[i]
+		b := extList2[i]
 		if !a.matches(&b) {
 			return false
 		}
@@ -135,9 +149,9 @@ func ExtentsMatch(blocks1, blocks2 FileExtentList) bool {
 	return true
 }
 
-func ShowExtents(blocks FileExtentList) string {
+func ShowExtents(extList FileExtentList) string {
 	res := ""
-	for _, b := range blocks {
+	for _, b := range extList {
 		res += fmt.Sprintf("offs=%x len=%x phys=%x flags=%x\n", b.Logical, b.Length, b.Physical, b.Flags)
 	}
 	return res

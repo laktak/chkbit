@@ -34,19 +34,19 @@ const (
 )
 
 const (
-	cmdCheck          = "check <paths>"
-	cmdUpdate         = "update <paths>"
-	cmdShowIgnored    = "show-ignored <paths>"
-	cmdInit           = "init <mode> <path>"
-	cmdFuse           = "fuse <path>"
-	cmdDedupDetect    = "dedup detect <path>"
-	cmdDedupShow      = "dedup show <path>"
-	cmdDedupRun       = "dedup run <path>"
-	cmdDedupRun2      = "dedup run <path> <hashes>"
-	cmdUtilFileblocks = "util fileblocks <paths>"
-	cmdUtilFilededup  = "util filededup <paths>"
-	cmdTips           = "tips"
-	cmdVersion        = "version"
+	cmdCheck         = "check <paths>"
+	cmdUpdate        = "update <paths>"
+	cmdShowIgnored   = "show-ignored <paths>"
+	cmdInit          = "init <mode> <path>"
+	cmdFuse          = "fuse <path>"
+	cmdDedupDetect   = "dedup detect <path>"
+	cmdDedupShow     = "dedup show <path>"
+	cmdDedupRun      = "dedup run <path>"
+	cmdDedupRun2     = "dedup run <path> <hashes>"
+	cmdUtilFileext   = "util fileext <paths>"
+	cmdUtilFilededup = "util filededup <paths>"
+	cmdTips          = "tips"
+	cmdVersion       = "version"
 )
 
 var appVersion = "vdev"
@@ -87,13 +87,13 @@ type CLI struct {
 	Dedup CLIDedup `cmd:"" help:"Deduplication commands"`
 
 	Util struct {
-		Fileblocks struct {
+		Fileext struct {
 			Paths []string `arg:"" name:"paths" help:"files to check"`
 		} `cmd:"" help:"check if the given files occupy the same block on disk; Linux only"`
 
 		Filededup struct {
 			Paths []string `arg:"" name:"paths" help:"files to dedup"`
-		} `cmd:"" help:"calls the kernel to deduplicate blocks for the given files on disk, files must match; Linux with supported filesystems only"`
+		} `cmd:"" help:"run deduplication for the given files, makes all duplicate file blocks point to the same space; requires Linux kernel with supported filesystem only"`
 	} `cmd:"" help:"Utility functions"`
 
 	ShowIgnored struct {
@@ -139,7 +139,7 @@ type CLIDedup struct {
 	Run struct {
 		Path   string   `arg:"" help:"directory for the index"`
 		Hashes []string `arg:"" optional:"" name:"hashes" help:"hashes to select (all if not specified)"`
-	} `cmd:"" help:"run deduplication, make all duplicate files point to the same space; Linux with supported filesystem only"`
+	} `cmd:"" help:"run deduplication, makes all duplicate file blocks point to the same space; requires Linux kernel with supported filesystem only"`
 }
 
 type Main struct {
@@ -507,12 +507,8 @@ func (m *Main) run() int {
 	case cmdDedupDetect, cmdDedupShow, cmdDedupRun, cmdDedupRun2:
 		return m.runDedup(ctx.Command(), &cli.Dedup, cli.IndexName)
 
-	case cmdUtilFileblocks:
-		paths := cli.Util.Fileblocks.Paths
-		if len(paths) < 2 {
-			fmt.Println("error: supply two or more paths")
-			return 1
-		}
+	case cmdUtilFileext:
+		paths := cli.Util.Fileext.Paths
 		allMatch := true
 		var first chkbit.FileExtentList
 		for i, path := range paths {
@@ -529,15 +525,16 @@ func (m *Main) run() int {
 					allMatch = false
 				}
 			}
-			if m.verbose {
+			if m.verbose || len(paths) == 1 {
 				fmt.Println(path)
 				fmt.Print(chkbit.ShowExtents(blocks))
 			}
 		}
-		if allMatch {
+		if len(paths) > 1 && allMatch {
 			fmt.Println("Files occupie the same blocks.")
+			return 0
 		}
-		return 0
+		return 1
 
 	case cmdUtilFilededup:
 		paths := cli.Util.Filededup.Paths

@@ -9,14 +9,14 @@ import (
 type FileExtentList []int
 
 func GetFileExtents(_ string) (FileExtentList, error) {
-	return nil, errors.New("fileblocks is not supported on this OS")
+	return nil, errors.New("file-extents are not supported on this OS")
 }
 
 func ExtentsMatch(_, _ FileExtentList) bool {
 	return false
 }
 
-func ShowExtents(blocks FileExtentList) string {
+func ShowExtents(_ FileExtentList) string {
 	return ""
 }
 
