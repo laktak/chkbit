@@ -163,14 +163,18 @@ func (s *indexStore) Finish(abort bool) (updated bool, err error) {
 			}
 		}
 
-		if s.cacheFileR != "" {
-			os.Remove(s.cacheFileR)
-		}
-		if s.cacheFileW != "" {
-			os.Remove(s.cacheFileW)
-		}
 		updated = true
 	}
+
+	if s.cacheFileR != "" {
+		os.Remove(s.cacheFileR)
+		s.cacheFileR = ""
+	}
+	if s.cacheFileW != "" {
+		os.Remove(s.cacheFileW)
+		s.cacheFileW = ""
+	}
+
 	return
 }
 
