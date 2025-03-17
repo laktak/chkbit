@@ -91,6 +91,7 @@ func (m *Main) showDedupStatus(list []*chkbit.DedupBag, showDetails bool) {
 	minsize := uint64(0)
 	maxsize := uint64(0)
 	actsize := uint64(0)
+	extUnknownCount := 0
 	for i, bag := range list {
 
 		bagLen := uint64(len(bag.ItemList))
@@ -99,11 +100,20 @@ func (m *Main) showDedupStatus(list []*chkbit.DedupBag, showDetails bool) {
 		minsize += bag.Size
 		maxsize += bag.Size * bagLen
 		actsize += bag.SizeExclusive
+		bagUnknown := bag.ExtUnknown != nil && *bag.ExtUnknown
+		if bagUnknown {
+			extUnknownCount++
+		}
 
 		if showDetails {
-			fmt.Printf("#%d %s [%s, shared=%s, exclusive=%s]\n",
-				i, bag.Hash, intutil.FormatSize(bag.Size),
-				intutil.FormatSize(bag.SizeShared), intutil.FormatSize(bag.SizeExclusive))
+			if !bagUnknown {
+				fmt.Printf("#%d %s [%s, shared=%s, exclusive=%s]\n",
+					i, bag.Hash, intutil.FormatSize(bag.Size),
+					intutil.FormatSize(bag.SizeShared), intutil.FormatSize(bag.SizeExclusive))
+			} else {
+				fmt.Printf("#%d %s [%s*]\n",
+					i, bag.Hash, intutil.FormatSize(bag.Size))
+			}
 			for _, item := range bag.ItemList {
 				c := "-"
 				if item.Merged {
@@ -116,12 +126,23 @@ func (m *Main) showDedupStatus(list []*chkbit.DedupBag, showDetails bool) {
 
 	fmt.Println()
 	fmt.Printf("Detected %d hashes that are shared by %d files:\n", chash, cfile)
-	fmt.Printf("- Minimum required space: %s\n", intutil.FormatSize(minsize))
-	fmt.Printf("- Maximum required space: %s\n", intutil.FormatSize(maxsize))
-	fmt.Printf("- Actual used space:      %s\n", intutil.FormatSize(actsize))
-	fmt.Printf("- Reclaimable space:      %s\n", intutil.FormatSize(actsize-minsize))
-	if maxsize-minsize > 0 {
-		fmt.Printf("- Efficiency:             %.2f%%\n", (1-(float64(actsize-minsize)/float64(maxsize-minsize)))*100)
+	if extUnknownCount*2 > len(list) {
+		fmt.Printf("- Used space:             %s\n", intutil.FormatSize(actsize))
+		fmt.Printf("\n*) failed to load file-extents on this OS/filesystem for\n"+
+			"   %.2f%% of files, cannot show details and reclaimable\n   space\n", (float64(extUnknownCount)/float64(len(list)))*100)
+	} else {
+		fmt.Printf("- Minimum required space: %s\n", intutil.FormatSize(minsize))
+		fmt.Printf("- Maximum required space: %s\n", intutil.FormatSize(maxsize))
+		fmt.Printf("- Actual used space:      %s\n", intutil.FormatSize(actsize))
+		fmt.Printf("- Reclaimable space:      %s\n", intutil.FormatSize(actsize-minsize))
+		if maxsize-minsize > 0 {
+			fmt.Printf("- Efficiency:             %.2f%%\n", (1-(float64(actsize-minsize)/float64(maxsize-minsize)))*100)
+		}
+		if extUnknownCount > 0 {
+			fmt.Printf("\n*) failed to load file-extents on this OS/filesystem for\n"+
+				"   %.2f%% of files, shown data is not accurate\n", (float64(extUnknownCount)/float64(len(list)))*100)
+
+		}
 	}
 }
 

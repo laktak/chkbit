@@ -230,7 +230,7 @@ func DeduplicateFiles(file1, file2 string) (uint64, error) {
 		if dedupe.Info[0].Status < 0 {
 			errno := unix.Errno(-dedupe.Info[0].Status)
 			if errno == unix.EOPNOTSUPP {
-				return reclaimed, errors.New("deduplication not supported on this filesystem")
+				return reclaimed, errNotSupported
 			} else if errno == unix.EINVAL {
 				return reclaimed, errors.New("deduplication status failed: EINVAL;")
 			}

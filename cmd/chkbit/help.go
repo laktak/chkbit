@@ -40,4 +40,8 @@ Configuration file (json):
 Performance:
 - chkbit uses 5 workers by default. To speed it up tune it with the --workers flag.
 - Note: slow/spinning disks work best with just 1 worker!
+
+Deduplication:
+- requires a supported OS, currently Linux with a CoW filesystem like btrfs
+- for details see https://laktak.github.io/chkbit/dedup/
 `

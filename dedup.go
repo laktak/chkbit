@@ -36,6 +36,7 @@ type ddBag struct {
 	Size          int64        `json:"size"`
 	SizeShared    uint64       `json:"shared"`
 	SizeExclusive uint64       `json:"exclusive"`
+	ExtUnknown    *bool        `json:"extUnknown,omitempty"`
 	ItemList      []*DedupItem `json:"item"`
 }
 
@@ -44,12 +45,13 @@ type DedupBag struct {
 	Size          uint64       `json:"size"`
 	SizeShared    uint64       `json:"shared"`
 	SizeExclusive uint64       `json:"exclusive"`
+	ExtUnknown    *bool        `json:"extUnknown,omitempty"`
 	ItemList      []*DedupItem `json:"item"`
 }
 
 type DedupItem struct {
 	Path   string `json:"path"`
-	Merged bool   `json:"done"`
+	Merged bool   `json:"merged"`
 }
 
 const (
@@ -291,11 +293,15 @@ func (d *Dedup) DetectDupes(minSize uint64, verbose bool) (err error) {
 				item *DedupItem
 			}
 
+			extUnknown := false
 			var matches []match
 			d.perfMonFiles(len(bag.ItemList), i, len(all))
 			for _, item := range bag.ItemList {
 				if res, err := GetFileExtents(filepath.Join(d.rootPath, item.Path)); err == nil {
 					matches = append(matches, match{-1, res, item})
+				} else if IsNotSupported(err) {
+					matches = append(matches, match{-1, nil, item})
+					extUnknown = true
 				} else {
 					// file is ignored
 					if !os.IsNotExist(err) {
@@ -330,7 +336,9 @@ func (d *Dedup) DetectDupes(minSize uint64, verbose bool) (err error) {
 					maxCount = c
 				}
 			}
-
+			if extUnknown {
+				bag.ExtUnknown = &extUnknown
+			}
 			bag.SizeShared = 0
 			bag.SizeExclusive = 0
 			bag.ItemList = []*DedupItem{}
@@ -403,6 +411,7 @@ func (d *Dedup) Show() ([]*DedupBag, error) {
 				Size:          uint64(bag.Size),
 				SizeShared:    bag.SizeShared,
 				SizeExclusive: bag.SizeExclusive,
+				ExtUnknown:    bag.ExtUnknown,
 				ItemList:      bag.ItemList,
 			})
 		}
@@ -481,6 +490,9 @@ func (d *Dedup) Dedup(hashes []string, verbose bool) error {
 						list[0].Merged = true
 						list[i].Merged = true
 						d.ReclaimedTotal += reclaimed
+					} else if IsNotSupported(err) {
+						d.log(StatusPanic, "Dedupliate is not supported for this OS, please see https://laktak.github.io/chkbit/dedup/")
+						return err
 					} else {
 						d.log(StatusPanic, err.Error())
 					}

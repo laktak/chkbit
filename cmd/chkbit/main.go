@@ -93,7 +93,7 @@ type CLI struct {
 
 		Filededup struct {
 			Paths []string `arg:"" name:"paths" help:"files to dedup"`
-		} `cmd:"" help:"run deduplication for the given files, makes all duplicate file blocks point to the same space; requires Linux kernel with supported filesystem only"`
+		} `cmd:"" help:"run deduplication for the given files, makes all duplicate file blocks point to the same space; requires supported OS & filesystem (see tips)"`
 	} `cmd:"" help:"Utility functions"`
 
 	ShowIgnored struct {
@@ -139,7 +139,7 @@ type CLIDedup struct {
 	Run struct {
 		Path   string   `arg:"" help:"directory for the index"`
 		Hashes []string `arg:"" optional:"" name:"hashes" help:"hashes to select (all if not specified)"`
-	} `cmd:"" help:"run deduplication, makes all duplicate file blocks point to the same space; requires Linux kernel with supported filesystem only"`
+	} `cmd:"" help:"run deduplication, makes all duplicate file blocks point to the same space; requires supported OS & filesystem (see tips)"`
 }
 
 type Main struct {

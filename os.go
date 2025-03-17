@@ -2,14 +2,10 @@
 
 package chkbit
 
-import (
-	"errors"
-)
-
 type FileExtentList []int
 
 func GetFileExtents(_ string) (FileExtentList, error) {
-	return nil, errors.New("file-extents are not supported on this OS")
+	return nil, errNotSupported
 }
 
 func ExtentsMatch(_, _ FileExtentList) bool {
@@ -21,5 +17,5 @@ func ShowExtents(_ FileExtentList) string {
 }
 
 func DeduplicateFiles(_, _ string) (uint64, error) {
-	return 0, errors.New("deduplicate is not supported on this OS")
+	return 0, errNotSupported
 }
