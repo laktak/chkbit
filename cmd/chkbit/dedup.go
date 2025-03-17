@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"math"
 	"os"
 	"os/signal"
 	"strings"
@@ -14,7 +15,7 @@ import (
 	"github.com/laktak/lterm"
 )
 
-func (m *Main) handleDedupProgress(showFps bool) {
+func (m *Main) handleDedupProgress(mode1 bool) {
 
 	abortChan := make(chan os.Signal, 1)
 	signal.Notify(abortChan, os.Interrupt)
@@ -53,12 +54,16 @@ func (m *Main) handleDedupProgress(showFps bool) {
 			if last.Add(updateInterval).Before(now) {
 				last = now
 				if m.progress == Fancy {
-					pa, pb := util.Progress(perf.Percent, m.termWidth/4)
-					stat = fmt.Sprintf("[$%s$%s$]$ %5.0f%% $ # %7d ", pa, pb, perf.Percent*100, m.dedup.NumTotal)
+					pa, pb := util.Progress(perf.Percent, int(math.Min(12, float64(m.termWidth/4))))
+					stat = fmt.Sprintf("[$%s$%s$]$ %5.0f%% ", pa, pb, perf.Percent*100)
 
-					if showFps {
+					if mode1 {
+						stat += fmt.Sprintf("$ # %7d ", m.dedup.NumTotal)
 						statF := fmt.Sprintf("%d files/s", m.fps.Last())
 						stat += fmt.Sprintf("$ %s $%-13s ", util.Sparkline(m.fps.Stats), statF)
+					} else {
+						stat += fmt.Sprintf("$ # %d ", m.dedup.NumTotal)
+						stat += fmt.Sprintf("$ %sB reclaimed ", intutil.FormatSize(m.dedup.ReclaimedTotal))
 					}
 
 					stat = util.LeftTruncate(stat, m.termWidth-1+5) // extra for col tokens
@@ -68,8 +73,8 @@ func (m *Main) handleDedupProgress(showFps bool) {
 					stat = strings.Replace(stat, "$", termFG1, 1)                   // ]
 					stat = strings.Replace(stat, "$", termFG1, 1)                   // text
 					stat = strings.Replace(stat, "$", termSepFG+termSep+termFG1, 1) // count
-					if showFps {
-						stat = strings.Replace(stat, "$", termSepFG+termSep+termFG2, 1)
+					stat = strings.Replace(stat, "$", termSepFG+termSep+termFG2, 1)
+					if mode1 {
 						stat = strings.Replace(stat, "$", termFG1, 1) // text
 					}
 				}
@@ -176,7 +181,7 @@ func (m *Main) runDedup(command string, dd *CLIDedup, indexName string) int {
 	}
 	defer m.dedup.Finish()
 
-	showFps := true
+	mode1 := true
 	resultCh := make(chan error, 1)
 	launchFunc := func() {
 		var err error
@@ -209,11 +214,11 @@ func (m *Main) runDedup(command string, dd *CLIDedup, indexName string) int {
 	case cmdDedupRun, cmdDedupRun2:
 		m.logInfo("", fmt.Sprintf("chkbit dedup detect %s %s", argPath, dd.Run.Hashes))
 		fmt.Println(abortTip)
-		showFps = false
+		mode1 = false
 	}
 
 	go launchFunc()
-	m.handleDedupProgress(showFps)
+	m.handleDedupProgress(mode1)
 
 	if err = <-resultCh; err != nil {
 		m.printError(err)
@@ -229,7 +234,7 @@ func (m *Main) runDedup(command string, dd *CLIDedup, indexName string) int {
 		m.logInfo("", fmt.Sprintf("- %d file(s) processed", m.dedup.NumTotal))
 		m.logInfo("", fmt.Sprintf("- %.2f files/second", (float64(m.fps.Total)+float64(m.fps.Current))/elapsedS))
 		if m.dedup.ReclaimedTotal > 0 {
-			m.logInfo("", fmt.Sprintf("- %s bytes reclaimed", intutil.FormatSize(m.dedup.ReclaimedTotal)))
+			m.logInfo("", fmt.Sprintf("- %sB reclaimed", intutil.FormatSize(m.dedup.ReclaimedTotal)))
 		}
 	}
 

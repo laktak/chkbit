@@ -85,11 +85,11 @@ func (d *Dedup) logMsg(message string) {
 	d.log(StatusInfo, message)
 }
 
-func (d *Dedup) perfMonFiles(numFiles, i, l int) {
+func (d *Dedup) perfMonFiles(numFiles int, i float64, l int) {
 	d.NumTotal += uint(numFiles)
 	pc := 0.0
 	if l > 0 {
-		pc = float64(i) / float64(l)
+		pc = i / float64(l)
 	}
 	d.PerfQueue <- &DedupPerfEvent{int64(numFiles), pc}
 }
@@ -295,7 +295,7 @@ func (d *Dedup) DetectDupes(minSize uint64, verbose bool) (err error) {
 
 			extUnknown := false
 			var matches []match
-			d.perfMonFiles(len(bag.ItemList), i, len(all))
+			d.perfMonFiles(len(bag.ItemList), float64(i), len(all))
 			for _, item := range bag.ItemList {
 				if res, err := GetFileExtents(filepath.Join(d.rootPath, item.Path)); err == nil {
 					matches = append(matches, match{-1, res, item})
@@ -446,11 +446,10 @@ func (d *Dedup) Dedup(hashes []string, verbose bool) error {
 
 	if err := d.conn.Update(func(tx *bolt.Tx) error {
 		b := tx.Bucket(ddItemBucketName)
-		c := 0
+		done := 0
 		d.perfMonFiles(0, 0, len(hashes))
 
 		for _, hash := range hashes {
-			c += 1
 
 			if d.doAbort {
 				return errAborted
@@ -472,6 +471,14 @@ func (d *Dedup) Dedup(hashes []string, verbose bool) error {
 				}
 				return 1
 			})
+			todoCount := 0.0
+			for i := 1; i < len(list); i++ {
+				if !list[i].Merged {
+					todoCount += 1
+				}
+			}
+			listDone := 0.0
+
 			// merged are at the top
 			for i := 1; i < len(list); i++ {
 				if d.doAbort {
@@ -487,18 +494,25 @@ func (d *Dedup) Dedup(hashes []string, verbose bool) error {
 						d.logMsg(fmt.Sprintf("dedup %s %s", intutil.FormatSize(uint64(bag.Size)), a))
 					}
 					if reclaimed, err := DeduplicateFiles(a, b); err == nil {
+						if !list[0].Merged {
+							bag.SizeShared += uint64(bag.Size)
+						}
 						list[0].Merged = true
 						list[i].Merged = true
+						bag.SizeShared += uint64(bag.Size)
+						bag.SizeExclusive -= uint64(bag.Size)
 						d.ReclaimedTotal += reclaimed
 					} else if IsNotSupported(err) {
-						d.log(StatusPanic, "Dedupliate is not supported for this OS, please see https://laktak.github.io/chkbit/dedup/")
+						d.log(StatusPanic, "Dedupliate is not supported for this OS/fs, please see https://laktak.github.io/chkbit/dedup/")
 						return err
 					} else {
 						d.log(StatusPanic, err.Error())
 					}
+					listDone += 1
+					d.perfMonFiles(1, float64(done)+listDone/todoCount, len(hashes))
 				}
 			}
-			d.perfMonFiles(1, c, len(hashes))
+			done += 1
 
 			if data, err := json.Marshal(&bag); err == nil {
 				if err := b.Put(bhash, data); err != nil {
@@ -507,8 +521,8 @@ func (d *Dedup) Dedup(hashes []string, verbose bool) error {
 			} else {
 				return err
 			}
-
 		}
+		d.perfMonFiles(0, float64(done), len(hashes))
 		return nil
 	}); err != nil {
 		return err
