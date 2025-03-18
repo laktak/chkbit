@@ -45,7 +45,7 @@ func (m *Main) handleDedupProgress(mode1 bool) {
 				if m.progress == Fancy {
 					lterm.Write(termBG, termFG1, stat, lterm.ClearLine(0), lterm.Reset, "\r")
 				} else {
-					fmt.Print(m.dedup.NumTotal, "\r")
+					fmt.Print(m.dedup.NumTotal(), "\r")
 				}
 			}
 		case perf := <-m.dedup.PerfQueue:
@@ -58,12 +58,12 @@ func (m *Main) handleDedupProgress(mode1 bool) {
 					stat = fmt.Sprintf("[$%s$%s$]$ %5.0f%% ", pa, pb, perf.Percent*100)
 
 					if mode1 {
-						stat += fmt.Sprintf("$ # %7d ", m.dedup.NumTotal)
+						stat += fmt.Sprintf("$ # %7d ", m.dedup.NumTotal())
 						statF := fmt.Sprintf("%d files/s", m.fps.Last())
 						stat += fmt.Sprintf("$ %s $%-13s ", util.Sparkline(m.fps.Stats), statF)
 					} else {
-						stat += fmt.Sprintf("$ # %d ", m.dedup.NumTotal)
-						stat += fmt.Sprintf("$ %sB reclaimed ", intutil.FormatSize(m.dedup.ReclaimedTotal))
+						stat += fmt.Sprintf("$ # %d ", m.dedup.NumTotal())
+						stat += fmt.Sprintf("$ %sB reclaimed ", intutil.FormatSize(m.dedup.ReclaimedTotal()))
 					}
 
 					stat = util.LeftTruncate(stat, m.termWidth-1+5) // extra for col tokens
@@ -83,7 +83,7 @@ func (m *Main) handleDedupProgress(mode1 bool) {
 			if m.progress == Fancy {
 				lterm.Write(termBG, termFG1, stat, spin, lterm.ClearLine(0), lterm.Reset, "\r")
 			} else if m.progress == Plain {
-				fmt.Print(m.dedup.NumTotal, "\r")
+				fmt.Print(m.dedup.NumTotal(), "\r")
 			}
 		}
 	}
@@ -170,29 +170,23 @@ func (m *Main) runDedup(command string, dd *CLIDedup, indexName string) int {
 		return 1
 	}
 	if st != chkbit.IndexTypeAtom {
-		fmt.Println("error: dedup is incompatible with split mode")
+		m.printErr("error: dedup requires an atom index; you can create one with `chkbit fuse` while leaving your split index in place")
 		return 1
 	}
 
-	m.dedup, err = chkbit.NewDedup(root, indexName)
+	m.dedup, err = chkbit.NewDedup(root, indexName, command == cmdDedupDetect)
 	if err != nil {
 		m.printError(err)
+		if command != cmdDedupDetect && os.IsNotExist(err) {
+			m.printStderr("Did you forget to run `chkbit detect`?")
+		}
 		return 1
 	}
 	defer m.dedup.Finish()
 
 	mode1 := true
-	resultCh := make(chan error, 1)
-	launchFunc := func() {
-		var err error
-		switch command {
-		case cmdDedupDetect:
-			err = m.dedup.DetectDupes(dd.Detect.MinSize, m.verbose)
-		case cmdDedupRun, cmdDedupRun2:
-			err = m.dedup.Dedup(dd.Run.Hashes, m.verbose)
-		}
-		resultCh <- err
-		m.dedup.LogQueue <- nil
+	printUpdated := func() {
+		m.logInfo("", "last updated "+m.dedup.LastUpdated().Format(time.DateTime))
 	}
 
 	switch command {
@@ -204,6 +198,7 @@ func (m *Main) runDedup(command string, dd *CLIDedup, indexName string) int {
 				}
 			} else {
 				m.logInfo("", "chkbit dedup show "+argPath)
+				printUpdated()
 				m.showDedupStatus(list, dd.Show.Details)
 			}
 		}
@@ -213,11 +208,23 @@ func (m *Main) runDedup(command string, dd *CLIDedup, indexName string) int {
 		fmt.Println(abortTip)
 	case cmdDedupRun, cmdDedupRun2:
 		m.logInfo("", fmt.Sprintf("chkbit dedup detect %s %s", argPath, dd.Run.Hashes))
+		printUpdated()
 		fmt.Println(abortTip)
 		mode1 = false
 	}
 
-	go launchFunc()
+	resultCh := make(chan error, 1)
+	go func() {
+		var err error
+		switch command {
+		case cmdDedupDetect:
+			err = m.dedup.DetectDupes(dd.Detect.MinSize, m.verbose)
+		case cmdDedupRun, cmdDedupRun2:
+			err = m.dedup.Dedup(dd.Run.Hashes, m.verbose)
+		}
+		resultCh <- err
+		m.dedup.LogQueue <- nil
+	}()
 	m.handleDedupProgress(mode1)
 
 	if err = <-resultCh; err != nil {
@@ -227,14 +234,17 @@ func (m *Main) runDedup(command string, dd *CLIDedup, indexName string) int {
 		}
 	}
 
-	if m.progress == Fancy && m.dedup.NumTotal > 0 {
-		elapsed := time.Since(m.fps.Start)
-		elapsedS := elapsed.Seconds()
-		m.logInfo("", fmt.Sprintf("- %s elapsed", elapsed.Truncate(time.Second)))
-		m.logInfo("", fmt.Sprintf("- %d file(s) processed", m.dedup.NumTotal))
-		m.logInfo("", fmt.Sprintf("- %.2f files/second", (float64(m.fps.Total)+float64(m.fps.Current))/elapsedS))
-		if m.dedup.ReclaimedTotal > 0 {
-			m.logInfo("", fmt.Sprintf("- %sB reclaimed", intutil.FormatSize(m.dedup.ReclaimedTotal)))
+	switch command {
+	case cmdDedupDetect, cmdDedupRun, cmdDedupRun2:
+		if m.progress == Fancy {
+			elapsed := time.Since(m.fps.Start)
+			elapsedS := elapsed.Seconds()
+			m.logInfo("", fmt.Sprintf("- %s elapsed", elapsed.Truncate(time.Second)))
+			m.logInfo("", fmt.Sprintf("- %s processed", util.LangNum1Choice(m.dedup.NumTotal(), "file", "files")))
+			m.logInfo("", fmt.Sprintf("- %.2f files/second", (float64(m.fps.Total)+float64(m.fps.Current))/elapsedS))
+			if m.dedup.ReclaimedTotal() > 0 {
+				m.logInfo("", fmt.Sprintf("- %sB reclaimed", intutil.FormatSize(m.dedup.ReclaimedTotal())))
+			}
 		}
 	}
 

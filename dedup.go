@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"time"
 
 	"github.com/laktak/chkbit/v6/intutil"
 	bolt "go.etcd.io/bbolt"
@@ -23,12 +24,13 @@ type Dedup struct {
 	conn   *bolt.DB
 
 	doAbort        bool
-	NumTotal       uint
-	ReclaimedTotal uint64
+	numTotal       int
+	reclaimedTotal uint64
 }
 
 type ddStatus struct {
-	Gen int `json:"gen"`
+	Gen     int       `json:"gen"`
+	Updated time.Time `json:"mod"`
 }
 
 type ddBag struct {
@@ -77,6 +79,18 @@ func (d *Dedup) DidAbort() bool {
 	return d.doAbort
 }
 
+func (d *Dedup) NumTotal() int {
+	return d.numTotal
+}
+
+func (d *Dedup) ReclaimedTotal() uint64 {
+	return d.reclaimedTotal
+}
+
+func (d *Dedup) LastUpdated() time.Time {
+	return d.status.Updated
+}
+
 func (d *Dedup) log(stat Status, message string) {
 	d.LogQueue <- &LogEvent{stat, message}
 }
@@ -86,7 +100,7 @@ func (d *Dedup) logMsg(message string) {
 }
 
 func (d *Dedup) perfMonFiles(numFiles int, i float64, l int) {
-	d.NumTotal += uint(numFiles)
+	d.numTotal += numFiles
 	pc := 0.0
 	if l > 0 {
 		pc = i / float64(l)
@@ -94,7 +108,7 @@ func (d *Dedup) perfMonFiles(numFiles int, i float64, l int) {
 	d.PerfQueue <- &DedupPerfEvent{int64(numFiles), pc}
 }
 
-func NewDedup(path string, indexName string) (*Dedup, error) {
+func NewDedup(path string, indexName string, createIfNotExists bool) (*Dedup, error) {
 	var err error
 	d := &Dedup{
 		rootPath:  path,
@@ -103,6 +117,13 @@ func NewDedup(path string, indexName string) (*Dedup, error) {
 		PerfQueue: make(chan *DedupPerfEvent, 100),
 	}
 	dedupFile := filepath.Join(path, d.indexName+dedupSuffix)
+
+	_, err = os.Stat(dedupFile)
+	if err != nil {
+		if !os.IsNotExist(err) || !createIfNotExists {
+			return nil, err
+		}
+	}
 
 	d.conn, err = bolt.Open(dedupFile, 0600, getBoltOptions(false))
 	if err != nil {
@@ -140,6 +161,7 @@ func (d *Dedup) Finish() error {
 func (d *Dedup) nextGen(tx *bolt.Tx) error {
 	if sb := tx.Bucket(ddStatusBucketName); sb != nil {
 		d.status.Gen += 1
+		d.status.Updated = time.Now()
 		if data, err := json.Marshal(&d.status); err == nil {
 			return sb.Put(ddStatusName, data)
 		} else {
@@ -501,7 +523,7 @@ func (d *Dedup) Dedup(hashes []string, verbose bool) error {
 						list[i].Merged = true
 						bag.SizeShared += uint64(bag.Size)
 						bag.SizeExclusive -= uint64(bag.Size)
-						d.ReclaimedTotal += reclaimed
+						d.reclaimedTotal += reclaimed
 					} else if IsNotSupported(err) {
 						d.log(StatusPanic, "Dedupliate is not supported for this OS/fs, please see https://laktak.github.io/chkbit/dedup/")
 						return err

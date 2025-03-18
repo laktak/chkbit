@@ -88,7 +88,7 @@ type CLI struct {
 	Fuse struct {
 		Path  string `arg:"" help:"directory for the index"`
 		Force bool   `help:"force overwrite if a index already exists"`
-	} `cmd:"" help:"merge all indexes (split&atom) under this path into an atom index"`
+	} `cmd:"" help:"merge all indexes (split&atom) under this path into a single atom index, will NOT delete the source indexes"`
 
 	Dedup CLIDedup `cmd:"" help:"Deduplication commands"`
 
