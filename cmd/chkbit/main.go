@@ -35,6 +35,7 @@ const (
 
 const (
 	cmdCheck         = "check <paths>"
+	cmdAdd           = "add <paths>"
 	cmdUpdate        = "update <paths>"
 	cmdShowIgnored   = "show-ignored <paths>"
 	cmdInit          = "init <mode> <path>"
@@ -68,17 +69,21 @@ type CLI struct {
 		SkipNew bool     `short:"s" help:"verify index only, do not report new files"`
 	} `cmd:"" help:"chkbit will verify files in readonly mode"`
 
+	Add struct {
+		Paths []string `arg:"" name:"paths" help:"directories to add"`
+	} `cmd:"" help:"add and update modified files (alias for chkbit update -s)"`
+
 	Update struct {
 		Paths        []string `arg:"" name:"paths" help:"directories to update"`
 		SkipExisting bool     `short:"s" help:"only add new and modified files, do not check existing (quicker)"`
 		Force        bool     `help:"force update of damaged items (advanced usage only)"`
-	} `cmd:"" help:"add and update modified files, also checking existing ones (see flags with -h)"`
+	} `cmd:"" help:"add and update modified files, also checking existing ones (see chkbit update -h)"`
 
 	Init struct {
 		Mode  string `arg:"" enum:"split,atom" help:"{split|atom} split mode creates one index per directory while in atom mode a single index is created at the given path"`
 		Path  string `arg:"" help:"directory for the index"`
 		Force bool   `help:"force init if a index already exists"`
-	} `cmd:"" help:"initialize a new index at the given path that manages the path and all its subfolders (see -h)"`
+	} `cmd:"" help:"initialize a new index at the given path that manages the path and all its subfolders (see chkbit init -h)"`
 
 	Fuse struct {
 		Path string `arg:"" help:"directory for the index"`
@@ -476,9 +481,14 @@ func (m *Main) run() int {
 		m.logger = log.New(f, "", 0)
 	}
 
-	switch ctx.Command() {
+	cmd := ctx.Command()
+	switch cmd {
 	case cmdCheck, cmdUpdate, cmdShowIgnored:
-		return m.runCmd(ctx.Command(), cli)
+		return m.runCmd(cmd, cli)
+	case cmdAdd:
+		cli.Update.Paths = cli.Add.Paths
+		cli.Update.SkipExisting = true
+		return m.runCmd(cmdUpdate, cli)
 	case cmdInit:
 		m.logInfo("", fmt.Sprintf("chkbit init %s %s", cli.Init.Mode, cli.Init.Path))
 		st := chkbit.IndexTypeSplit
@@ -505,7 +515,7 @@ func (m *Main) run() int {
 		}
 		return 0
 	case cmdDedupDetect, cmdDedupShow, cmdDedupRun, cmdDedupRun2:
-		return m.runDedup(ctx.Command(), &cli.Dedup, cli.IndexName)
+		return m.runDedup(cmd, &cli.Dedup, cli.IndexName)
 
 	case cmdUtilFileext:
 		paths := cli.Util.Fileext.Paths
@@ -567,7 +577,7 @@ func (m *Main) run() int {
 		fmt.Println(appVersion)
 		return 0
 	default:
-		fmt.Println("unknown: " + ctx.Command())
+		fmt.Println("unknown: " + cmd)
 		return 1
 	}
 }
