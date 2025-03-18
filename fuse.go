@@ -19,7 +19,12 @@ type fuseStore struct {
 
 type FuseLogFunc func(string)
 
-func FuseIndexStore(path, indexName string, skipSymlinks, verbose bool, log FuseLogFunc) error {
+func FuseIndexStore(path, indexName string, skipSymlinks, verbose bool, force bool, log FuseLogFunc) error {
+
+	if err := InitializeIndexStore(IndexTypeAtom, path, indexName, force); err != nil {
+		return err
+	}
+
 	fileName := getMarkerFile(IndexTypeAtom, path, indexName)
 	if _, err := os.Stat(fileName); err != nil {
 		return errMissingIndex

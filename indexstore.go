@@ -482,7 +482,7 @@ func InitializeIndexStore(st IndexType, path, indexName string, force bool) erro
 				return err
 			}
 		} else {
-			return errors.New("file exists")
+			return errors.New("index already exists")
 		}
 	}
 	file, err := os.Create(fileName)

@@ -86,7 +86,8 @@ type CLI struct {
 	} `cmd:"" help:"initialize a new index at the given path that manages the path and all its subfolders (see chkbit init -h)"`
 
 	Fuse struct {
-		Path string `arg:"" help:"directory for the index"`
+		Path  string `arg:"" help:"directory for the index"`
+		Force bool   `help:"force overwrite if a index already exists"`
 	} `cmd:"" help:"merge all indexes (split&atom) under this path into an atom index"`
 
 	Dedup CLIDedup `cmd:"" help:"Deduplication commands"`
@@ -507,7 +508,7 @@ func (m *Main) run() int {
 		log := func(text string) {
 			m.logInfo("", text)
 		}
-		if err := chkbit.FuseIndexStore(cli.Fuse.Path, cli.IndexName, cli.SkipSymlinks, cli.Verbose, log); err != nil {
+		if err := chkbit.FuseIndexStore(cli.Fuse.Path, cli.IndexName, cli.SkipSymlinks, cli.Verbose, cli.Fuse.Force, log); err != nil {
 			text := chkbit.StatusPanic.String() + " " + err.Error()
 			m.printErr(text)
 			m.log(text)
