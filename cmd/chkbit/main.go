@@ -95,12 +95,12 @@ type CLI struct {
 	Util struct {
 		Fileext struct {
 			Paths []string `arg:"" name:"paths" help:"files to check"`
-		} `cmd:"" help:"check if the given files occupy the same block on disk; Linux only"`
+		} `cmd:"" help:"check if the given files occupy the same block on disk"`
 
 		Filededup struct {
 			Paths []string `arg:"" name:"paths" help:"files to dedup"`
-		} `cmd:"" help:"run deduplication for the given files, makes all duplicate file blocks point to the same space; requires supported OS & filesystem (see tips)"`
-	} `cmd:"" help:"Utility functions"`
+		} `cmd:"" help:"run deduplication for the given files, makes all duplicate file blocks point to the same space"`
+	} `cmd:"" help:"Utility functions; requires supported OS & filesystem (see tips)"`
 
 	ShowIgnored struct {
 		Paths []string `arg:"" name:"paths" help:"directories to list"`
