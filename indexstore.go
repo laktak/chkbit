@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"os"
+	slpath "path"
 	"path/filepath"
 	"slices"
 	"sync"
@@ -209,7 +210,7 @@ func (s *indexStore) Save(indexPath string, value []byte) error {
 		s.storeDbQueue <- &storeDbItem{[]byte(indexPath), value}
 	} else {
 		// try to preserve the directory mod time but ignore if unsupported
-		dirPath := filepath.Dir(indexPath)
+		dirPath := slpath.Dir(indexPath)
 		dirStat, dirErr := os.Stat(dirPath)
 		err = os.WriteFile(indexPath, value, 0644)
 		if dirErr == nil {
@@ -297,7 +298,7 @@ func (s *indexStore) exportCache(dbFile, suffix string) (exportFile string, err 
 			}
 
 			// remove index filename
-			key := filepath.Dir(string(k))
+			key := slpath.Dir(string(k))
 			if key == "." {
 				key = ""
 			}
@@ -431,12 +432,12 @@ func verifyAtomJsonHead(decoder *json.Decoder) error {
 }
 
 func getAtomFile(path, indexName, suffix string) string {
-	return filepath.Join(path, indexName+atomSuffix+suffix)
+	return slpath.Join(path, indexName+atomSuffix+suffix)
 }
 
 func getMarkerFile(st IndexType, path, indexName string) string {
 	if st == IndexTypeSplit {
-		return filepath.Join(path, indexName)
+		return slpath.Join(path, indexName)
 	} else {
 		return getAtomFile(path, indexName, "")
 	}
@@ -502,6 +503,7 @@ func LocateIndex(startPath string, filter IndexType, indexName string) (st Index
 	if path, err = filepath.Abs(startPath); err != nil {
 		return
 	}
+	path = filepath.ToSlash(path)
 	for {
 		var ok bool
 		for _, st = range IndexTypeList {
@@ -512,8 +514,8 @@ func LocateIndex(startPath string, filter IndexType, indexName string) (st Index
 			}
 		}
 
-		path = filepath.Dir(path)
-		if len(path) < 1 || path[len(path)-1] == filepath.Separator {
+		path = slpath.Dir(path)
+		if len(path) < 1 || path[len(path)-1] == '/' {
 			// reached root
 			err = errMissingIndex
 			return

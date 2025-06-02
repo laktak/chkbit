@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"os"
-	"path/filepath"
+	slpath "path"
 	"slices"
 )
 
@@ -72,19 +72,19 @@ func getMtS(path string) (mtime, size int64, err error) {
 }
 
 func (i *Index) getIndexFilepath() string {
-	return filepath.Join(i.path, i.context.IndexFilename)
+	return slpath.Join(i.path, i.context.IndexFilename)
 }
 
 func (i *Index) logFilePanic(name string, message string) {
-	i.context.log(StatusPanic, filepath.Join(i.path, name)+": "+message)
+	i.context.log(StatusPanic, slpath.Join(i.path, name)+": "+message)
 }
 
 func (i *Index) logFile(stat Status, name string) {
-	i.context.log(stat, filepath.Join(i.path, name))
+	i.context.log(stat, slpath.Join(i.path, name))
 }
 
 func (i *Index) logDir(stat Status, name string) {
-	i.context.log(stat, filepath.Join(i.path, name)+"/")
+	i.context.log(stat, slpath.Join(i.path, name)+"/")
 }
 
 func (i *Index) calcHashes(ignore *Ignore) {
@@ -196,12 +196,12 @@ func (i *Index) checkFix(forceUpdateDmg bool) {
 }
 
 func (i *Index) mtimeChanged(name string, ii idxInfo) bool {
-	mtime, _, _ := getMtS(filepath.Join(i.path, name))
+	mtime, _, _ := getMtS(slpath.Join(i.path, name))
 	return ii.ModTime != mtime
 }
 
 func (i *Index) calcFile(name string, algo string) (*idxInfo, error) {
-	path := filepath.Join(i.path, name)
+	path := slpath.Join(i.path, name)
 	mtime, size, err := getMtS(path)
 	if err != nil {
 		return nil, err

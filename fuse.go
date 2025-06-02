@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"path/filepath"
+	slpath "path"
 )
 
 type fuseStore struct {
@@ -69,7 +69,7 @@ func (f *fuseStore) fuseScanDir(root, prefix string) {
 	}
 
 	for _, file := range files {
-		path := filepath.Join(root, file.Name())
+		path := slpath.Join(root, file.Name())
 		if isDir(file, path, f.skipSymlinks) {
 			newPrefix := prefix + file.Name() + "/"
 			if fileName, ok, _ := existsMarkerFile(IndexTypeAtom, path, f.indexName); ok {

@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	slpath "path"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -193,7 +194,7 @@ func (context *Context) scanDir(root string, parentIgnore *Ignore, depth int) {
 	}
 
 	for _, file := range files {
-		path := filepath.Join(root, file.Name())
+		path := slpath.Join(root, file.Name())
 		if isDir(file, path, context.SkipSymlinks) {
 			if !ignore.shouldIgnore(file.Name()) {
 				dirList = append(dirList, file.Name())
@@ -209,7 +210,7 @@ func (context *Context) scanDir(root string, parentIgnore *Ignore, depth int) {
 
 	if !context.SkipSubdirectories && (context.MaxDepth == 0 || depth < context.MaxDepth) {
 		for _, name := range dirList {
-			context.scanDir(filepath.Join(root, name), ignore, depth+1)
+			context.scanDir(slpath.Join(root, name), ignore, depth+1)
 		}
 	}
 }
@@ -223,7 +224,7 @@ func (context *Context) UseAtomIndexStore(root string, pathList []string) (relat
 		}
 
 		// below root?
-		if !strings.HasPrefix(path, root) {
+		if !strings.HasPrefix(filepath.ToSlash(path), root) {
 			return nil, fmt.Errorf("path %s is not below the atom index in %s", path, root)
 		}
 
@@ -231,6 +232,7 @@ func (context *Context) UseAtomIndexStore(root string, pathList []string) (relat
 		if err != nil {
 			return nil, err
 		}
+		relativePath = filepath.ToSlash(relativePath)
 		relativePathList = append(relativePathList, relativePath)
 	}
 

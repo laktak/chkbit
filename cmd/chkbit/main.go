@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	slpath "path"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -146,6 +147,27 @@ type CLIDedup struct {
 		Path   string   `arg:"" help:"directory for the index"`
 		Hashes []string `arg:"" optional:"" name:"hashes" help:"hashes to select (all if not specified)"`
 	} `cmd:"" help:"run deduplication, makes all duplicate file blocks point to the same space; requires supported OS & filesystem (see tips)"`
+}
+
+func toSlash(paths []string) []string {
+	for i, path := range paths {
+		paths[i] = filepath.ToSlash(path)
+	}
+	return paths
+}
+
+func (cli *CLI) toSlash() {
+	cli.Check.Paths = toSlash(cli.Check.Paths)
+	cli.Add.Paths = toSlash(cli.Add.Paths)
+	cli.Update.Paths = toSlash(cli.Update.Paths)
+	cli.Init.Path = filepath.ToSlash(cli.Init.Path)
+	cli.Fuse.Path = filepath.ToSlash(cli.Fuse.Path)
+	cli.Dedup.Detect.Path = filepath.ToSlash(cli.Dedup.Detect.Path)
+	cli.Dedup.Show.Path = filepath.ToSlash(cli.Dedup.Show.Path)
+	cli.Dedup.Run.Path = filepath.ToSlash(cli.Dedup.Run.Path)
+	cli.Util.Fileext.Paths = toSlash(cli.Util.Fileext.Paths)
+	cli.Util.Filededup.Paths = toSlash(cli.Util.Filededup.Paths)
+	cli.ShowIgnored.Paths = toSlash(cli.ShowIgnored.Paths)
 }
 
 type Main struct {
@@ -441,7 +463,7 @@ func (m *Main) run() int {
 	var configPath = "chkbit-config.json"
 	configRoot, err := os.UserConfigDir()
 	if err == nil {
-		configPath = filepath.Join(configRoot, "chkbit/config.json")
+		configPath = slpath.Join(configRoot, "chkbit/config.json")
 	}
 
 	var cli CLI
@@ -459,6 +481,8 @@ func (m *Main) run() int {
 		cli = CLI{}
 		ctx = kong.Parse(&cli, kongOptions...)
 	}
+
+	cli.toSlash()
 
 	if cli.Quiet {
 		m.progress = Quiet

@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"path/filepath"
+	slpath "path"
 	"slices"
 	"time"
 
@@ -116,7 +116,7 @@ func NewDedup(path string, indexName string, createIfNotExists bool) (*Dedup, er
 		LogQueue:  make(chan *LogEvent, 100),
 		PerfQueue: make(chan *DedupPerfEvent, 100),
 	}
-	dedupFile := filepath.Join(path, d.indexName+dedupSuffix)
+	dedupFile := slpath.Join(path, d.indexName+dedupSuffix)
 
 	_, err = os.Stat(dedupFile)
 	if err != nil {
@@ -254,7 +254,7 @@ func (d *Dedup) DetectDupes(minSize uint64, verbose bool) (err error) {
 	for hash, bag := range all {
 		if bag.Size == -1 {
 			for _, p := range bag.ItemList {
-				if s, err := os.Stat(filepath.Join(d.rootPath, p.Path)); err == nil {
+				if s, err := os.Stat(slpath.Join(d.rootPath, p.Path)); err == nil {
 					bag.Size = s.Size()
 					break
 				}
@@ -319,7 +319,7 @@ func (d *Dedup) DetectDupes(minSize uint64, verbose bool) (err error) {
 			var matches []match
 			d.perfMonFiles(len(bag.ItemList), float64(i), len(all))
 			for _, item := range bag.ItemList {
-				if res, err := GetFileExtents(filepath.Join(d.rootPath, item.Path)); err == nil {
+				if res, err := GetFileExtents(slpath.Join(d.rootPath, item.Path)); err == nil {
 					matches = append(matches, match{-1, res, item})
 				} else if IsNotSupported(err) {
 					matches = append(matches, match{-1, nil, item})
@@ -508,8 +508,8 @@ func (d *Dedup) Dedup(hashes []string, verbose bool) error {
 				}
 
 				if !list[i].Merged {
-					a := filepath.Join(d.rootPath, list[0].Path)
-					b := filepath.Join(d.rootPath, list[i].Path)
+					a := slpath.Join(d.rootPath, list[0].Path)
+					b := slpath.Join(d.rootPath, list[i].Path)
 					if verbose {
 						d.logMsg(fmt.Sprintf("dedup %s %s \"%s\" -- \"%s\"", hash, intutil.FormatSize(uint64(bag.Size)), a, b))
 					} else {

@@ -3,7 +3,7 @@ package chkbit
 import (
 	"bufio"
 	"os"
-	"path/filepath"
+	slpath "path"
 	"strings"
 )
 
@@ -20,7 +20,7 @@ func GetIgnore(context *Context, path string, parentIgnore *Ignore) (*Ignore, er
 		parentIgnore: parentIgnore,
 		context:      context,
 		path:         path,
-		name:         filepath.Base(path) + "/",
+		name:         slpath.Base(path) + "/",
 	}
 	err := ignore.loadIgnore()
 	if err != nil {
@@ -30,7 +30,7 @@ func GetIgnore(context *Context, path string, parentIgnore *Ignore) (*Ignore, er
 }
 
 func (ignore *Ignore) getIgnoreFilepath() string {
-	return filepath.Join(ignore.path, ignore.context.IgnoreFilename)
+	return slpath.Join(ignore.path, ignore.context.IgnoreFilename)
 }
 
 func (ignore *Ignore) loadIgnore() error {
@@ -76,11 +76,11 @@ func (ignore *Ignore) shouldIgnore2(name string, fullname string) bool {
 				item = item[1:]
 			}
 		}
-		if match, _ := filepath.Match(item, name); match {
+		if match, _ := slpath.Match(item, name); match {
 			return true
 		}
 		if fullname != "" {
-			if match, _ := filepath.Match(item, fullname); match {
+			if match, _ := slpath.Match(item, fullname); match {
 				return true
 			}
 		}
