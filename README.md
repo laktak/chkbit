@@ -1,6 +1,8 @@
 
 # chkbit
 
+{ repos & mirrors: [github.com/laktak/chkbit](https://github.com/laktak/chkbit/), [codeberg.org/laktak/chkbit](https://codeberg.org/laktak/chkbit) }
+
 chkbit alerts you to data corruption in your files, especially during transfers, backups, and after recovery. It helps detect issues like disk damage, filesystem errors, and malware interference.
 
 The latest version can also detect duplicate files and run deduplication on supported systems.
