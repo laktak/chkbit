@@ -127,7 +127,7 @@ func (i *Index) calcHashes(ignore *Ignore) {
 
 func (i *Index) showIgnoredOnly(ignore *Ignore) {
 	for _, name := range i.files {
-		if ignore.shouldIgnore(name) {
+		if ignore.shouldIgnore(name) && !ignore.context.isChkbitFile(name) {
 			i.logFile(StatusIgnore, name)
 		}
 	}

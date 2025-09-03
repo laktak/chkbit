@@ -64,6 +64,8 @@ var (
 	termDimFG   = lterm.Fg8(240)
 )
 
+var configRoot string
+
 type CLI struct {
 	Check struct {
 		Paths   []string `arg:"" name:"paths" help:"directories to check"`
@@ -113,22 +115,23 @@ type CLI struct {
 	Version struct {
 	} `cmd:"" help:"show version information"`
 
-	LogDeleted   bool   `short:"x" help:"log deleted/missing files/directories since the last run" negatable:""`
-	IncludeDot   bool   `short:"d" help:"include dot files" negatable:""`
-	SkipSymlinks bool   `short:"S" help:"do not follow symlinks" negatable:""`
-	NoRecurse    bool   `short:"R" help:"do not recurse into subdirectories" negatable:""`
-	NoDirInIndex bool   `short:"D" help:"do not track directories in the index" negatable:""`
-	NoConfig     bool   `help:"ignore the config file"`
-	MaxDepth     int    `default:0 help:"process a directory only if it is N or fewer levels below the specified path(s); 0 for no limit"`
-	LogFile      string `short:"l" help:"write to a logfile if specified"`
-	LogVerbose   bool   `help:"verbose logging" negatable:""`
-	Algo         string `default:"blake3" help:"hash algorithm: md5, sha512, blake3"`
-	IndexName    string `default:".chkbit" help:"filename where chkbit stores its hashes, needs to start with '.'"`
-	IgnoreName   string `default:".chkbitignore" help:"filename that chkbit reads its ignore list from, needs to start with '.'"`
-	Workers      int    `short:"w" default:"5" help:"number of workers to use. For slow IO (like on a spinning disk) --workers=1 will be faster"`
-	Plain        bool   `help:"show plain status instead of being fancy" negatable:""`
-	Quiet        bool   `short:"q" help:"quiet, don't show progress/information" negatable:""`
-	Verbose      bool   `short:"v" help:"verbose output" negatable:""`
+	LogDeleted     bool   `short:"x" help:"log deleted/missing files/directories since the last run" negatable:""`
+	IncludeDot     bool   `short:"d" help:"include dot files" negatable:""`
+	SkipSymlinks   bool   `short:"S" help:"do not follow symlinks" negatable:""`
+	NoRecurse      bool   `short:"R" help:"do not recurse into subdirectories" negatable:""`
+	NoDirInIndex   bool   `short:"D" help:"do not track directories in the index" negatable:""`
+	NoConfig       bool   `help:"do not load the config file"`
+	NoGlobalIgnore bool   `help:"do not load the global ignore file"`
+	MaxDepth       int    `default:0 help:"process a directory only if it is N or fewer levels below the specified path(s); 0 for no limit"`
+	LogFile        string `short:"l" help:"write to a logfile if specified"`
+	LogVerbose     bool   `help:"verbose logging" negatable:""`
+	Algo           string `default:"blake3" help:"hash algorithm: md5, sha512, blake3"`
+	IndexName      string `default:".chkbit" help:"filename where chkbit stores its hashes, needs to start with '.'"`
+	IgnoreName     string `default:".chkbitignore" help:"filename that chkbit reads its ignore list from, needs to start with '.'"`
+	Workers        int    `short:"w" default:"5" help:"number of workers to use. For slow IO (like on a spinning disk) --workers=1 will be faster"`
+	Plain          bool   `help:"show plain status instead of being fancy" negatable:""`
+	Quiet          bool   `short:"q" help:"quiet, don't show progress/information" negatable:""`
+	Verbose        bool   `short:"v" help:"verbose output" negatable:""`
 }
 
 type CLIDedup struct {
@@ -338,6 +341,9 @@ func (m *Main) runCmd(command string, cli CLI) int {
 	m.context.SkipSubdirectories = cli.NoRecurse
 	m.context.TrackDirectories = !cli.NoDirInIndex
 	m.context.MaxDepth = cli.MaxDepth
+	if !cli.NoGlobalIgnore {
+		m.context.GlobalIgnorePath = configRoot
+	}
 
 	st, root, err := chkbit.LocateIndex(pathList[0], chkbit.IndexTypeAny, m.context.IndexFilename)
 	if err != nil {
@@ -461,9 +467,8 @@ func (m *Main) run() int {
 	}
 
 	var configPath = "chkbit-config.json"
-	configRoot, err := os.UserConfigDir()
-	if err == nil {
-		configPath = slpath.Join(configRoot, "chkbit/config.json")
+	if configRoot != "" {
+		configPath = slpath.Join(configRoot, "config.json")
 	}
 
 	var cli CLI
@@ -595,7 +600,14 @@ func (m *Main) run() int {
 		return 0
 
 	case cmdTips:
-		fmt.Println(strings.ReplaceAll(helpTips, "<config-file>", configPath))
+		globalIgnoreFile := "unsupported"
+
+		if configRoot != "" {
+			globalIgnoreFile = slpath.Join(configRoot, cli.IgnoreName)
+		}
+		tips := strings.ReplaceAll(helpTips, "<config-file>", configPath)
+		tips = strings.ReplaceAll(tips, "<global-ignore-file>", globalIgnoreFile)
+		fmt.Println(tips)
 		return 0
 	case cmdVersion:
 		fmt.Println("github.com/laktak/chkbit")
@@ -615,6 +627,13 @@ func main() {
 			os.Exit(1)
 		}
 	}()
+
+	var err error
+	if configRoot, err = os.UserConfigDir(); err == nil {
+		configRoot = slpath.Join(configRoot, "chkbit")
+	} else {
+		configRoot = ""
+	}
 
 	termWidth := lterm.GetWidth()
 	m := &Main{

@@ -18,6 +18,7 @@ var helpTips = `
   - \\      escape to match the following character
 - lines starting with '#' are skipped
 - lines starting with '/' are only applied to the current directory
+- global ignore file location: <global-ignore-file>
 
 Status codes:
   PNC: exception/panic, unable to continue

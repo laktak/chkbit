@@ -24,6 +24,7 @@ type Context struct {
 	SkipSubdirectories bool
 	IndexFilename      string
 	IgnoreFilename     string
+	GlobalIgnorePath   string
 	MaxDepth           int
 
 	WorkQueue chan *WorkItem
@@ -142,6 +143,14 @@ func (context *Context) Process(pathList []string) {
 	context.NumUpd = 0
 	context.NumDel = 0
 
+	var globalIgnore *Ignore = nil
+
+	if context.GlobalIgnorePath != "" {
+		if ignore, err := GetIgnore(context, context.GlobalIgnorePath, nil); err == nil {
+			globalIgnore = ignore
+		}
+	}
+
 	err := context.store.Open(!context.UpdateIndex, context.NumWorkers*10)
 	if err != nil {
 		context.logErr("index", err)
@@ -159,7 +168,7 @@ func (context *Context) Process(pathList []string) {
 	}
 	go func() {
 		for _, path := range pathList {
-			context.scanDir(path, nil, 1)
+			context.scanDir(path, globalIgnore, 1)
 		}
 		for i := 0; i < context.NumWorkers; i++ {
 			context.endWork()

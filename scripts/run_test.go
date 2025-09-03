@@ -19,7 +19,7 @@ func runCmd(args ...string) *exec.Cmd {
 	_, filename, _, _ := runtime.Caller(0)
 	prjRoot := filepath.Dir(filepath.Dir(filename))
 	tool := filepath.Join(prjRoot, "chkbit")
-	args = append([]string{"--no-config"}, args...)
+	args = append([]string{"--no-config", "--no-global-ignore"}, args...)
 	return exec.Command(tool, args...)
 }
 
