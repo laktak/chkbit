@@ -214,11 +214,8 @@ func (i *Index) mtimeChanged(name string, ii idxInfo) bool {
 
 func (i *Index) calcFile(name string, algo string) (*idxInfo, error) {
 	path := slpath.Join(i.path, name)
-	mtime, size, err := getMtS(path)
-	if err != nil {
-		return nil, err
-	}
-	hash, err := Hashfile(path, algo, i.context.perfMonBytes)
+
+	hash, mtime, size, err := Hashfile(path, algo, i.context.perfMonBytes)
 	if err != nil {
 		return nil, err
 	}
