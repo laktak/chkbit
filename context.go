@@ -44,10 +44,14 @@ type Context struct {
 }
 
 func (context *Context) Abort() {
+	context.mutex.Lock()
+	defer context.mutex.Unlock()
 	context.doAbort = true
 }
 
 func (context *Context) DidAbort() bool {
+	context.mutex.Lock()
+	defer context.mutex.Unlock()
 	return context.doAbort
 }
 
@@ -185,7 +189,7 @@ func (context *Context) Process(pathList []string) {
 
 func (context *Context) scanDir(root string, parentIgnore *Ignore, depth int) {
 
-	if context.doAbort {
+	if context.DidAbort() {
 		return
 	}
 

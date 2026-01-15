@@ -89,6 +89,10 @@ func (i *Index) logDir(stat Status, name string) {
 
 func (i *Index) calcHashes(ignore *Ignore) {
 	for _, name := range i.files {
+		if i.context.DidAbort() {
+			return
+		}
+
 		if ignore.shouldIgnore(name) {
 			if !ignore.context.isChkbitFile(name) {
 				i.logFile(StatusIgnore, name)
@@ -135,6 +139,10 @@ func (i *Index) showIgnoredOnly(ignore *Ignore) {
 
 func (i *Index) checkFix(forceUpdateDmg bool) {
 	for name, b := range i.new {
+		if i.context.DidAbort() {
+			return
+		}
+
 		if a, ok := i.cur[name]; !ok {
 			i.logFile(StatusNew, name)
 			i.modified = true

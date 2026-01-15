@@ -10,7 +10,7 @@ type WorkItem struct {
 func (context *Context) runWorker(_ int) {
 	for {
 		item := <-context.WorkQueue
-		if item == nil || context.doAbort {
+		if item == nil || context.DidAbort() {
 			break
 		}
 
