@@ -31,6 +31,7 @@ const (
 const (
 	updateInterval       = time.Millisecond * 700
 	sizeMB         int64 = 1024 * 1024
+	abortPending         = "> abort pending, stop immediately by pressing control+c again"
 	abortTip             = "> you can abort by pressing control+c"
 )
 
@@ -265,6 +266,10 @@ func (m *Main) handleProgress() {
 	for {
 		select {
 		case <-abortChan:
+			if m.context.DidAbort() {
+				m.printStderr("\nImmediate abort!\n")
+				os.Exit(1)
+			}
 			m.context.Abort()
 		case item := <-m.context.LogQueue:
 			if item == nil {
@@ -286,7 +291,13 @@ func (m *Main) handleProgress() {
 			m.bps.Push(now, perf.NumBytes)
 			if last.Add(updateInterval).Before(now) {
 				last = now
-				if m.progress == Fancy {
+				if m.context.DidAbort() {
+					if m.progress == Fancy {
+						lterm.Write(termBG, termFG1, abortPending, lterm.ClearLine(0), lterm.Reset, "\r")
+					} else if m.progress == Plain {
+						fmt.Print(abortPending, "\r")
+					}
+				} else if m.progress == Fancy {
 					statF := fmt.Sprintf("%d files/s", m.fps.Last())
 					statB := fmt.Sprintf("%d MB/s", m.bps.Last()/sizeMB)
 					stat = "RW"
